@@ -9,33 +9,43 @@ export default function PositionRow({ pos }) {
   const positive = pnl >= 0;
 
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "80px 50px 70px 70px 90px 70px",
-      alignItems: "center",
-      padding: "10px 0",
-      borderBottom: "1px solid rgba(255,255,255,0.04)",
-      fontSize: 13,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontFamily: "monospace", fontWeight: 600, color: "#f0f0f0" }}>{pos.ticker}</span>
-      </div>
-      <span style={{ fontSize: 10, fontWeight: 600, color: isLong ? "#4ade80" : "#f87171" }}>
-        {pos.direction}
-      </span>
-      <span style={{ fontFamily: "monospace", color: "#9ca3af" }}>${pos.entry.toFixed(2)}</span>
-      <span style={{ fontFamily: "monospace", color: "#d1d5db" }}>${exitPrice.toFixed(2)}</span>
-      <span style={{ fontFamily: "monospace", fontWeight: 600, color: positive ? "#4ade80" : "#f87171" }}>
-        {positive ? "+" : ""}${pnl.toFixed(2)} ({positive ? "+" : ""}{pnlPct.toFixed(1)}%)
-      </span>
-      <span style={{
-        fontSize: 10,
-        padding: "2px 6px",
-        borderRadius: 3,
-        background: isOpen ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.05)",
-        color: isOpen ? "#60a5fa" : "#6b7280",
-        textAlign: "center",
-      }}>{isOpen ? "OPEN" : "CLOSED"}</span>
-    </div>
+    <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
+      <td style={{ padding: "10px 12px", fontFamily: "monospace", fontWeight: 600, fontSize: 13, color: "#111827" }}>
+        {pos.ticker}
+      </td>
+      <td style={{ padding: "10px 8px" }}>
+        <span style={{
+          fontSize: 10,
+          fontWeight: 600,
+          padding: "2px 6px",
+          borderRadius: 3,
+          background: isLong ? "#dcfce7" : "#fee2e2",
+          color: isLong ? "#15803d" : "#dc2626",
+        }}>{pos.direction}</span>
+      </td>
+      <td style={{ padding: "10px 8px", fontFamily: "monospace", fontSize: 13, color: "#6b7280" }}>
+        ${pos.entry.toFixed(2)}
+      </td>
+      <td style={{ padding: "10px 8px", fontFamily: "monospace", fontSize: 13, color: "#374151" }}>
+        ${exitPrice.toFixed(2)}
+      </td>
+      <td style={{ padding: "10px 8px", fontFamily: "monospace", fontSize: 13, fontWeight: 600, color: positive ? "#16a34a" : "#dc2626" }}>
+        {positive ? "+" : ""}${pnl.toFixed(2)}
+      </td>
+      <td style={{ padding: "10px 8px", fontFamily: "monospace", fontSize: 11, color: positive ? "#16a34a" : "#dc2626" }}>
+        {positive ? "+" : ""}{pnlPct.toFixed(1)}%
+      </td>
+      <td style={{ padding: "10px 8px" }}>
+        <span style={{
+          fontSize: 10,
+          padding: "2px 8px",
+          borderRadius: 10,
+          background: isOpen ? "#eff6ff" : "#f9fafb",
+          color: isOpen ? "#2563eb" : "#9ca3af",
+          border: isOpen ? "1px solid #bfdbfe" : "1px solid #e5e7eb",
+          fontWeight: 500,
+        }}>{isOpen ? "Open" : "Closed"}</span>
+      </td>
+    </tr>
   );
 }

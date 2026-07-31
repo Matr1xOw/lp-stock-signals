@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -5,8 +7,8 @@
 }
 
 body {
-  background: #0a0e17;
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  background: #f5f6f8;
+  color: #1a1a2e;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
