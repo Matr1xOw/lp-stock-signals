@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1512" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: oklch(0.155 0.008 250); }
+  * { box-sizing: border-box; }
+  a { color: oklch(0.76 0.13 232); text-decoration: none; }
+  a:hover { color: oklch(0.84 0.11 232); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: oklch(0.19 0.009 250); }
+  ::-webkit-scrollbar-thumb { background: oklch(0.32 0.012 250); border-radius: 4px; }
+  @keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; width: 100%; background: oklch(0.155 0.008 250); color: oklch(0.94 0.004 250); font-family: 'IBM Plex Sans', Helvetica, sans-serif; font-size: 13px; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 12px;">
+
+  <header style="display: flex; align-items: center; gap: 22px; height: 44px; padding: 0 14px; background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; flex: 0 0 auto;">
+    <div style="display: flex; align-items: baseline; gap: 8px;">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px; letter-spacing: 0.14em; color: oklch(0.94 0.004 250);">SIGNAL DESK</span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: oklch(0.55 0.012 250);">v0.4</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 7px; padding: 3px 9px; border: 1px solid oklch(0.34 0.06 158); border-radius: 3px; background: oklch(0.23 0.02 158);">
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: oklch(0.74 0.15 158); animation: pulseDot 2.4s ease-in-out infinite;"></span>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: oklch(0.78 0.11 158);">MARKET OPEN</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.63 0.012 250);">
+      <span>{{ clock }} ET</span>
+      <span>SCAN <span style="color: oklch(0.94 0.004 250);">{{ scanAgo }}</span></span>
+      <span>UNIVERSE <span style="color: oklch(0.94 0.004 250);">2,847</span></span>
+    </div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; color: oklch(0.55 0.012 250);">EQUITY</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600;">{{ equityFmt }}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; color: oklch(0.55 0.012 250);">DAY</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: {{ dayColor }};">{{ dayPnlFmt }}</span>
+      </div>
+      <div style="width: 1px; height: 24px; background: oklch(0.29 0.012 250);"></div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 4px 5px 4px 10px; border: 1px solid oklch(0.29 0.012 250); border-radius: 3px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: oklch(0.63 0.012 250);">PAPER</span>
+        <span style="width: 22px; height: 22px; border-radius: 2px; background: oklch(0.30 0.012 250); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: oklch(0.86 0.01 250);">JD</span>
+      </div>
+    </div>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; flex: 0 0 auto;">
+    <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="5">
+      <div style="background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; padding: 10px 13px 11px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.15em; color: oklch(0.58 0.012 250);">{{ m.label }}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: oklch(0.50 0.012 250);">{{ m.window }}</span>
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 8px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; line-height: 1; letter-spacing: -0.01em; color: {{ m.color }};">{{ m.value }}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding-bottom: 2px; color: {{ m.deltaColor }};">{{ m.delta }}</span>
+        </div>
+        <div style="height: 3px; border-radius: 2px; background: oklch(0.27 0.012 250); overflow: hidden;">
+          <div style="height: 100%; border-radius: 2px; width: {{ m.bar }}; background: {{ m.color }};"></div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.32fr) minmax(0, 0.92fr); gap: 10px; flex: 1 1 auto; min-height: 620px;">
+
+    <section style="background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+      <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; background: oklch(0.235 0.01 250); border-bottom: 1px solid oklch(0.29 0.012 250); flex: 0 0 auto;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.16em;">ALGO SIGNALS</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; padding: 2px 6px; border-radius: 2px; background: oklch(0.30 0.05 232); color: oklch(0.82 0.11 232); letter-spacing: 0.08em;">{{ signalCount }} LIVE</span>
+        <div style="flex: 1;"></div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; color: oklch(0.58 0.012 250);">SORT · {{ sortLabel }}</span>
+      </div>
+      <div style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 7px; min-height: 0;">
+        <sc-for list="{{ signals }}" as="s" hint-placeholder-count="5">
+          <div onClick="{{ s.onSelect }}" style="border: 1px solid {{ s.cardBorder }}; background: {{ s.cardBg }}; border-radius: 4px; padding: 9px 10px 8px; display: flex; flex-direction: column; gap: 8px; cursor: pointer;" style-hover="border-color: oklch(0.45 0.03 250);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 3px; height: 26px; border-radius: 2px; background: {{ s.dirColor }}; flex: 0 0 auto;"></span>
+              <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+                <div style="display: flex; align-items: baseline; gap: 7px;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; letter-spacing: 0.02em;">{{ s.ticker }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.12em; padding: 2px 5px; border-radius: 2px; color: {{ s.dirColor }}; background: {{ s.dirBg }};">{{ s.dir }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.63 0.012 250);">{{ s.lastFmt }}</span>
+                </div>
+                <span style="font-size: 11px; color: oklch(0.58 0.012 250); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ s.company }}</span>
+              </div>
+              <div style="flex: 1;"></div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; color: oklch(0.55 0.012 250);">CONF</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div style="width: 46px; height: 4px; border-radius: 2px; background: oklch(0.28 0.012 250); overflow: hidden;">
+                    <div style="height: 100%; width: {{ s.confBar }}; background: {{ s.confColor }};"></div>
+                  </div>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: {{ s.confColor }};">{{ s.conf }}</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: oklch(0.28 0.012 250); border-radius: 3px; overflow: hidden;">
+              <div style="background: oklch(0.185 0.009 250); padding: 5px 7px; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: oklch(0.55 0.012 250);">ENTRY</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">{{ s.entry }}</span>
+              </div>
+              <div style="background: oklch(0.185 0.009 250); padding: 5px 7px; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: oklch(0.55 0.012 250);">STOP</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.66 0.19 22);">{{ s.stop }}</span>
+              </div>
+              <div style="background: oklch(0.185 0.009 250); padding: 5px 7px; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: oklch(0.55 0.012 250);">TARGET</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.74 0.15 158);">{{ s.target }}</span>
+              </div>
+              <div style="background: oklch(0.185 0.009 250); padding: 5px 7px; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: oklch(0.55 0.012 250);">R:R</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">{{ s.rr }}</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.06em; padding: 3px 6px; border: 1px solid oklch(0.33 0.012 250); border-radius: 2px; color: oklch(0.78 0.01 250);">{{ s.pattern }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.55 0.012 250);">{{ s.detected }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.55 0.012 250);">{{ s.size }}</span>
+              <div style="flex: 1;"></div>
+              <button onClick="{{ s.onDismiss }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; padding: 5px 9px; border-radius: 2px; border: 1px solid oklch(0.31 0.012 250); background: transparent; color: oklch(0.63 0.012 250); cursor: pointer;" style-hover="border-color: oklch(0.50 0.12 22); color: oklch(0.72 0.15 22);">DISMISS</button>
+              <button onClick="{{ s.onTake }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; padding: 5px 11px; border-radius: 2px; border: 1px solid oklch(0.42 0.09 232); background: oklch(0.30 0.06 232); color: oklch(0.86 0.11 232); cursor: pointer;" style-hover="background: oklch(0.38 0.09 232); color: oklch(0.96 0.04 232);">TAKE</button>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ signalsEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 34px 16px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.52 0.012 250); line-height: 1.7;">NO ACTIVE SIGNALS<br />NEXT SCAN IN {{ scanNext }}</div>
+        </sc-if>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px; min-height: 0;">
+      <div style="background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto; min-height: 0; max-height: 620px;">
+        <div style="display: flex; align-items: center; gap: 12px; height: 34px; padding: 0 12px; background: oklch(0.235 0.01 250); border-bottom: 1px solid oklch(0.29 0.012 250); flex: 0 0 auto;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; flex: 0 0 auto;">{{ sel.ticker }}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; flex: 0 0 auto; color: {{ sel.chgColor }};">{{ sel.lastFmt }}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; flex: 0 0 auto; white-space: nowrap; color: {{ sel.chgColor }};">{{ sel.chgFmt }}</span>
+          <span style="flex: 1 1 auto; min-width: 0;"></span>
+          <div style="display: flex; gap: 1px; background: oklch(0.29 0.012 250); border-radius: 3px; flex: 0 0 auto;">
+            <sc-for list="{{ timeframes }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ t.onPick }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0; padding: 4px 5px; border: 0; cursor: pointer; flex: 0 0 auto; background: {{ t.bg }}; color: {{ t.color }};">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="flex: 1 1 auto; display: flex; min-height: 0;">
+          <div style="flex: 1; position: relative; min-width: 0; overflow: hidden; padding: 12px 0 0 10px;">
+            <sc-for list="{{ gridLines }}" as="g" hint-placeholder-count="5">
+              <div style="position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid oklch(0.235 0.01 250); top: {{ g.top }};"></div>
+            </sc-for>
+            <sc-for list="{{ candles }}" as="c" hint-placeholder-count="60">
+              <div style="position: absolute; bottom: 0; top: 0; left: {{ c.left }}; width: {{ c.width }};">
+                <div style="position: absolute; left: 50%; transform: translateX(-50%); width: 1px; background: {{ c.color }}; top: {{ c.wickTop }}; height: {{ c.wickH }};"></div>
+                <div style="position: absolute; left: 0; right: 0; background: {{ c.color }}; top: {{ c.bodyTop }}; height: {{ c.bodyH }};"></div>
+              </div>
+            </sc-for>
+            <sc-for list="{{ levels }}" as="l" hint-placeholder-count="3">
+              <div style="position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed {{ l.color }}; top: {{ l.top }};">
+                <span style="position: absolute; right: 4px; top: -8px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; padding: 1px 5px; border-radius: 2px; background: {{ l.chipBg }}; color: {{ l.color }};">{{ l.label }}</span>
+              </div>
+            </sc-for>
+            <div style="position: absolute; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; transform: translate(-50%, -50%); left: {{ marker.left }}; top: {{ marker.top }}; background: {{ marker.color }}; color: oklch(0.16 0.008 250);">{{ marker.glyph }}</div>
+          </div>
+          <div style="width: 62px; flex: 0 0 auto; position: relative; border-left: 1px solid oklch(0.29 0.012 250);">
+            <sc-for list="{{ gridLines }}" as="g" hint-placeholder-count="5">
+              <span style="position: absolute; left: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.58 0.012 250); transform: translateY(-50%); top: {{ g.top }};">{{ g.label }}</span>
+            </sc-for>
+            <span style="position: absolute; left: 4px; right: 4px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; padding: 2px 0; border-radius: 2px; transform: translateY(-50%); top: {{ sel.lastTop }}; background: {{ sel.chgColor }}; color: oklch(0.16 0.008 250);">{{ sel.lastFmt }}</span>
+          </div>
+        </div>
+
+        <div style="height: 52px; flex: 0 0 auto; display: flex; border-top: 1px solid oklch(0.235 0.01 250);">
+          <div style="flex: 1; position: relative; min-width: 0; padding: 8px 0 0 10px;">
+            <sc-for list="{{ candles }}" as="c" hint-placeholder-count="60">
+              <div style="position: absolute; bottom: 0; left: {{ c.left }}; width: {{ c.width }}; height: {{ c.volH }}; background: {{ c.volColor }};"></div>
+            </sc-for>
+          </div>
+          <div style="width: 62px; flex: 0 0 auto; border-left: 1px solid oklch(0.29 0.012 250); padding: 6px 0 0 7px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; color: oklch(0.55 0.012 250);">VOL</span>
+          </div>
+        </div>
+
+        <div style="height: 24px; flex: 0 0 auto; display: flex; align-items: center; gap: 0; padding: 0 72px 0 10px; border-top: 1px solid oklch(0.29 0.012 250); background: oklch(0.19 0.009 250);">
+          <sc-for list="{{ timeAxis }}" as="t" hint-placeholder-count="6">
+            <span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: oklch(0.55 0.012 250);">{{ t.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: stretch; overflow: hidden;">
+        <div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid oklch(0.29 0.012 250); flex: 1 1 168px; min-width: 0;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; color: oklch(0.58 0.012 250);">PATTERN DETECTED</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: oklch(0.90 0.01 250);">{{ sel.pattern }}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.55 0.012 250);">{{ sel.detected }} · {{ sel.tfLabel }}</span>
+        </div>
+        <sc-for list="{{ selStats }}" as="st" hint-placeholder-count="5">
+          <div style="flex: 1 1 96px; min-width: 0; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid oklch(0.235 0.01 250);">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; color: oklch(0.58 0.012 250); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ st.label }}</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 500; color: {{ st.color }};">{{ st.value }}</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.55 0.012 250);">{{ st.sub }}</span>
+          </div>
+        </sc-for>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; flex: 0 0 auto; margin-left: auto;">
+          <button onClick="{{ sel.onDismiss }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; padding: 9px 14px; border-radius: 3px; border: 1px solid oklch(0.31 0.012 250); background: transparent; color: oklch(0.68 0.012 250); cursor: pointer;" style-hover="border-color: oklch(0.50 0.12 22); color: oklch(0.72 0.15 22);">DISMISS</button>
+          <button onClick="{{ sel.onTake }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; padding: 9px 18px; border-radius: 3px; border: 1px solid oklch(0.42 0.09 232); background: oklch(0.32 0.07 232); color: oklch(0.88 0.11 232); cursor: pointer;" style-hover="background: oklch(0.40 0.10 232);">TAKE SIGNAL</button>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px; min-height: 0;">
+      <div style="background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; flex: 1 1 62%; min-height: 0;">
+        <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; background: oklch(0.235 0.01 250); border-bottom: 1px solid oklch(0.29 0.012 250); flex: 0 0 auto;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.16em;">MY POSITIONS</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: oklch(0.58 0.012 250);">{{ posCount }} OPEN</span>
+          <div style="flex: 1;"></div>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: {{ openPnlColor }};">{{ openPnlFmt }}</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; min-height: 0;">
+          <sc-for list="{{ positions }}" as="p" hint-placeholder-count="4">
+            <div style="padding: 9px 12px; border-bottom: 1px solid oklch(0.235 0.01 250); display: flex; flex-direction: column; gap: 7px;">
+              <div style="display: flex; align-items: center; gap: 7px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;">{{ p.ticker }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; padding: 2px 5px; border-radius: 2px; color: {{ p.dirColor }}; background: {{ p.dirBg }};">{{ p.dir }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.58 0.012 250);">{{ p.qty }}</span>
+                <div style="flex: 1;"></div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; line-height: 1.2; color: {{ p.pnlColor }};">{{ p.pnlFmt }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: {{ p.pnlColor }};">{{ p.pctFmt }} · {{ p.rFmt }}</span>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.60 0.012 250);">
+                <span>AVG <span style="color: oklch(0.90 0.01 250);">{{ p.avg }}</span></span>
+                <span>LAST <span style="color: oklch(0.90 0.01 250);">{{ p.last }}</span></span>
+                <span>STOP <span style="color: oklch(0.70 0.15 22);">{{ p.stop }}</span></span>
+                <span>TGT <span style="color: oklch(0.74 0.14 158);">{{ p.target }}</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="flex: 1; height: 4px; border-radius: 2px; background: oklch(0.28 0.012 250); position: relative; overflow: hidden;">
+                  <div style="position: absolute; top: 0; bottom: 0; border-radius: 2px; left: {{ p.progLeft }}; width: {{ p.progWidth }}; background: {{ p.pnlColor }};"></div>
+                </div>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: oklch(0.55 0.012 250); min-width: 62px; text-align: right;">{{ p.progLabel }}</span>
+                <button onClick="{{ p.onTrim }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; padding: 4px 8px; border-radius: 2px; border: 1px solid oklch(0.31 0.012 250); background: transparent; color: oklch(0.66 0.012 250); cursor: pointer;" style-hover="border-color: oklch(0.45 0.03 250); color: oklch(0.90 0.01 250);">TRIM ½</button>
+                <button onClick="{{ p.onClose }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.08em; padding: 4px 8px; border-radius: 2px; border: 1px solid oklch(0.38 0.08 22); background: oklch(0.26 0.04 22); color: oklch(0.80 0.13 22); cursor: pointer;" style-hover="background: oklch(0.33 0.07 22);">CLOSE</button>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ posEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 30px 16px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.52 0.012 250);">FLAT · NO OPEN RISK</div>
+          </sc-if>
+        </div>
+        <div style="flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid oklch(0.29 0.012 250); background: oklch(0.19 0.009 250); font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.60 0.012 250);">
+          <span>EXPOSURE <span style="color: oklch(0.92 0.01 250);">{{ exposureFmt }}</span></span>
+          <span>RISK ON <span style="color: oklch(0.80 0.13 22);">{{ riskFmt }}</span></span>
+          <span>BUYING PWR <span style="color: oklch(0.92 0.01 250);">{{ bpFmt }}</span></span>
+        </div>
+      </div>
+
+      <div style="background: oklch(0.205 0.009 250); border: 1px solid oklch(0.29 0.012 250); border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; flex: 1 1 38%; min-height: 0;">
+        <div style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; background: oklch(0.235 0.01 250); border-bottom: 1px solid oklch(0.29 0.012 250); flex: 0 0 auto;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.16em;">ENGINE LOG</span>
+          <div style="flex: 1;"></div>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.1em; color: oklch(0.72 0.11 158);">STREAMING</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 6px 0; min-height: 0;">
+          <sc-for list="{{ logs }}" as="l" hint-placeholder-count="7">
+            <div style="display: flex; align-items: baseline; gap: 9px; padding: 5px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;">
+              <span style="color: oklch(0.52 0.012 250); flex: 0 0 auto;">{{ l.time }}</span>
+              <span style="flex: 0 0 auto; font-size: 9px; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 2px; color: {{ l.tagColor }}; background: {{ l.tagBg }};">{{ l.tag }}</span>
+              <span style="color: oklch(0.74 0.012 250); line-height: 1.45;">{{ l.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;autoTick&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;signalSort&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;confidence&quot;,&quot;time&quot;,&quot;rr&quot;],&quot;default&quot;:&quot;confidence&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;riskCapital&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2500,&quot;min&quot;:250,&quot;max&quot;:10000,&quot;step&quot;:250,&quot;unit&quot;:&quot;$&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Risk&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const signals = [
+      { id: 's1', ticker: 'NVDA', company: 'NVIDIA Corp', dir: 'LONG', entry: 178.42, stop: 172.10, target: 194.60, conf: 91, pattern: 'BULL FLAG · 15m', detected: '2m ago', last: 178.66, base: 178.42, hist: 0.71, tfLabel: '15m' },
+      { id: 's2', ticker: 'AMD', company: 'Advanced Micro Devices', dir: 'LONG', entry: 164.85, stop: 159.90, target: 177.40, conf: 84, pattern: 'CUP & HANDLE · 1h', detected: '11m ago', last: 165.12, base: 164.85, hist: 0.66, tfLabel: '1h' },
+      { id: 's3', ticker: 'TSLA', company: 'Tesla Inc', dir: 'SHORT', entry: 331.20, stop: 339.80, target: 312.50, conf: 78, pattern: 'DOUBLE TOP · 15m', detected: '18m ago', last: 330.44, base: 331.20, hist: 0.61, tfLabel: '15m' },
+      { id: 's4', ticker: 'COIN', company: 'Coinbase Global', dir: 'LONG', entry: 288.15, stop: 277.40, target: 315.00, conf: 73, pattern: 'ASC TRIANGLE · 1h', detected: '26m ago', last: 289.02, base: 288.15, hist: 0.58, tfLabel: '1h' },
+      { id: 's5', ticker: 'XOM', company: 'Exxon Mobil Corp', dir: 'SHORT', entry: 112.60, stop: 115.30, target: 106.80, conf: 69, pattern: 'BEAR ENGULF · 1D', detected: '41m ago', last: 112.38, base: 112.60, hist: 0.54, tfLabel: '1D' },
+      { id: 's6', ticker: 'SMCI', company: 'Super Micro Computer', dir: 'LONG', entry: 46.90, stop: 44.55, target: 52.20, conf: 64, pattern: 'VOL BREAKOUT · 5m', detected: '52m ago', last: 46.97, base: 46.90, hist: 0.49, tfLabel: '5m' }
+    ];
+    const positions = [
+      { id: 'p1', ticker: 'MSFT', dir: 'LONG', qty: 120, avg: 508.30, last: 517.85, stop: 498.00, target: 536.00 },
+      { id: 'p2', ticker: 'PLTR', dir: 'LONG', qty: 900, avg: 152.40, last: 149.06, stop: 145.10, target: 168.00 },
+      { id: 'p3', ticker: 'QQQ 620C', dir: 'LONG', qty: 14, avg: 8.15, last: 9.62, stop: 6.20, target: 13.50 },
+      { id: 'p4', ticker: 'LULU', dir: 'SHORT', qty: 85, avg: 214.70, last: 209.35, stop: 222.40, target: 196.00 },
+      { id: 'p5', ticker: 'AAPL', dir: 'LONG', qty: 200, avg: 241.90, last: 243.11, stop: 235.50, target: 256.00 }
+    ];
+    this.state = {
+      signals, positions, selId: 's1', tf: '15m', tick: 0,
+      series: this.makeSeries('NVDA', 178.42, '15m', { lo: 172.10, hi: 194.60 }),
+      realized: 18420,
+      logs: [
+        { time: '14:32:08', tag: 'SIGNAL', text: 'NVDA bull flag confirmed — vol 2.4× avg' },
+        { time: '14:29:51', tag: 'SCAN', text: '2,847 symbols · 6 candidates · 412ms' },
+        { time: '14:24:03', tag: 'FILL', text: 'MSFT 120 @ 508.30 — signal #4471 taken' },
+        { time: '14:18:40', tag: 'REJECT', text: 'RIVN pattern score 0.41 below 0.60 floor' },
+        { time: '14:11:12', tag: 'EXIT', text: 'GOOGL target hit +2.1R · +$3,840' },
+        { time: '14:04:57', tag: 'SIGNAL', text: 'AMD cup & handle — neckline 164.85' },
+        { time: '13:58:22', tag: 'RISK', text: 'Portfolio heat 3.8% of 6.0% cap' }
+      ]
+    };
+  }
+
+  componentDidMount() {
+    if (this.props.autoTick === false) return;
+    this.timer = setInterval(() => this.tick(), 1400);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  // Series is scaled to span the signal's stop..target band so the level lines
+  // always sit inside the visible candle range.
+  makeSeries(ticker, endPrice, tf, band) {
+    const n = 64, r = this.rng(this.hash(ticker + tf));
+    const b = band || { lo: endPrice * 0.96, hi: endPrice * 1.04 };
+    const span = Math.abs(b.hi - b.lo) || endPrice * 0.05;
+    const target0 = Math.min(b.lo, b.hi) + span * 0.06;
+    const target1 = Math.max(b.lo, b.hi) - span * 0.06;
+
+    let walk = [], p = 0;
+    for (let i = 0; i < n; i++) { p += (r() - 0.5) * 2 + Math.sin(i / 9) * 0.35; walk.push(p); }
+    const wLo = Math.min(...walk), wHi = Math.max(...walk), wSpan = (wHi - wLo) || 1;
+    let px = walk.map(w => target0 + ((w - wLo) / wSpan) * (target1 - target0));
+
+    // Pull the tail to the live price without collapsing the range.
+    const delta = endPrice - px[n - 1];
+    px = px.map((v, i) => v + delta * Math.pow(i / (n - 1), 2.2));
+
+    const tick = span * (tf === '5m' ? 0.05 : tf === '15m' ? 0.075 : tf === '1h' ? 0.11 : 0.16);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const o = i === 0 ? px[0] - tick * 0.5 : px[i - 1];
+      const c = px[i];
+      out.push({
+        o, c,
+        h: Math.max(o, c) + r() * tick,
+        l: Math.min(o, c) - r() * tick,
+        v: 0.28 + r() * 0.72
+      });
+    }
+    const last = out[n - 1];
+    last.c = endPrice; last.h = Math.max(last.h, endPrice); last.l = Math.min(last.l, endPrice);
+    return out;
+  }
+  bandOf(s) { return { lo: Math.min(s.stop, s.target), hi: Math.max(s.stop, s.target) }; }
+
+  tick() {
+    this.setState(s => {
+      const jitter = (base, k) => base * (1 + (Math.random() - 0.5) * k);
+      const signals = s.signals.map(x => ({ ...x, last: +jitter(x.base, 0.0016).toFixed(2) }));
+      const positions = s.positions.map(x => ({ ...x, last: +jitter(x.last, x.ticker.includes('C') ? 0.006 : 0.0014).toFixed(2) }));
+      const sel = signals.find(x => x.id === s.selId);
+      const series = s.series.slice();
+      if (sel && series.length) {
+        const l = { ...series[series.length - 1] };
+        l.c = sel.last; l.h = Math.max(l.h, sel.last); l.l = Math.min(l.l, sel.last);
+        series[series.length - 1] = l;
+      }
+      return { signals, positions, series, tick: s.tick + 1 };
+    });
+  }
+
+  select(id) {
+    const s = this.state.signals.find(x => x.id === id);
+    if (!s) return;
+    this.setState({ selId: id, tf: s.tfLabel, series: this.makeSeries(s.ticker, s.last, s.tfLabel, this.bandOf(s)) });
+  }
+  setTf(tf) {
+    const s = this.state.signals.find(x => x.id === this.state.selId);
+    this.setState({ tf, series: s ? this.makeSeries(s.ticker, s.last, tf, this.bandOf(s)) : this.state.series });
+  }
+  dismiss(id) {
+    this.setState(st => {
+      const s = st.signals.find(x => x.id === id);
+      const signals = st.signals.filter(x => x.id !== id);
+      return {
+        signals,
+        selId: st.selId === id ? (signals[0] ? signals[0].id : null) : st.selId,
+        logs: [{ time: this.now(), tag: 'REJECT', text: (s ? s.ticker : '') + ' signal dismissed manually' }, ...st.logs]
+      };
+    });
+  }
+  take(id) {
+    this.setState(st => {
+      const s = st.signals.find(x => x.id === id);
+      if (!s) return {};
+      const risk = this.props.riskCapital ?? 2500;
+      const qty = Math.max(1, Math.round(risk / Math.abs(s.entry - s.stop)));
+      const signals = st.signals.filter(x => x.id !== id);
+      return {
+        signals,
+        selId: st.selId === id ? (signals[0] ? signals[0].id : null) : st.selId,
+        positions: [{ id: 'n' + id, ticker: s.ticker, dir: s.dir, qty, avg: s.entry, last: s.last, stop: s.stop, target: s.target }, ...st.positions],
+        logs: [{ time: this.now(), tag: 'FILL', text: s.ticker + ' ' + qty + ' @ ' + s.entry.toFixed(2) + ' — ' + s.pattern.split(' ·')[0].toLowerCase() }, ...st.logs]
+      };
+    });
+  }
+  closePos(id) {
+    this.setState(st => {
+      const p = st.positions.find(x => x.id === id);
+      const sign = p.dir === 'LONG' ? 1 : -1;
+      const pnl = (p.last - p.avg) * p.qty * sign;
+      return {
+        positions: st.positions.filter(x => x.id !== id),
+        realized: st.realized + pnl,
+        logs: [{ time: this.now(), tag: 'EXIT', text: p.ticker + ' closed manually · ' + this.money(pnl) }, ...st.logs]
+      };
+    });
+  }
+  trimPos(id) {
+    this.setState(st => {
+      const p = st.positions.find(x => x.id === id);
+      const half = Math.floor(p.qty / 2);
+      if (half < 1) return {};
+      const sign = p.dir === 'LONG' ? 1 : -1;
+      return {
+        positions: st.positions.map(x => x.id === id ? { ...x, qty: x.qty - half } : x),
+        realized: st.realized + (p.last - p.avg) * half * sign,
+        logs: [{ time: this.now(), tag: 'EXIT', text: p.ticker + ' trimmed ' + half + ' @ ' + p.last.toFixed(2) }, ...st.logs]
+      };
+    });
+  }
+
+  now() { const d = new Date(); return [d.getHours(), d.getMinutes(), d.getSeconds()].map(x => String(x).padStart(2, '0')).join(':'); }
+  money(n) { const a = Math.abs(n); const s = '$' + a.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); return (n < 0 ? '−' : '+') + s; }
+
+  renderVals() {
+    const C = {
+      up: 'oklch(0.74 0.15 158)', down: 'oklch(0.66 0.19 22)', accent: 'oklch(0.76 0.13 232)',
+      text: 'oklch(0.94 0.004 250)', muted: 'oklch(0.60 0.012 250)', amber: 'oklch(0.80 0.13 78)'
+    };
+    const st = this.state;
+    const sortMode = this.props.signalSort ?? 'confidence';
+    const sorted = st.signals.slice().sort((a, b) =>
+      sortMode === 'rr' ? (Math.abs(b.target - b.entry) / Math.abs(b.entry - b.stop)) - (Math.abs(a.target - a.entry) / Math.abs(a.entry - a.stop))
+      : sortMode === 'time' ? parseInt(a.detected) - parseInt(b.detected)
+      : b.conf - a.conf);
+    const risk = this.props.riskCapital ?? 2500;
+
+    const signals = sorted.map(s => {
+      const rr = Math.abs(s.target - s.entry) / Math.abs(s.entry - s.stop);
+      const isSel = s.id === st.selId;
+      const dirColor = s.dir === 'LONG' ? C.up : C.down;
+      return {
+        ...s,
+        dirColor,
+        dirBg: s.dir === 'LONG' ? 'oklch(0.26 0.04 158)' : 'oklch(0.26 0.05 22)',
+        cardBg: isSel ? 'oklch(0.245 0.014 250)' : 'oklch(0.215 0.009 250)',
+        cardBorder: isSel ? 'oklch(0.52 0.10 232)' : 'oklch(0.28 0.012 250)',
+        lastFmt: s.last.toFixed(2),
+        entry: s.entry.toFixed(2), stop: s.stop.toFixed(2), target: s.target.toFixed(2),
+        rr: rr.toFixed(2) + 'R',
+        conf: s.conf, confBar: s.conf + '%',
+        confColor: s.conf >= 85 ? C.up : s.conf >= 72 ? C.amber : C.muted,
+        size: Math.max(1, Math.round(risk / Math.abs(s.entry - s.stop))) + ' sh',
+        onSelect: () => this.select(s.id),
+        onTake: (e) => { e.stopPropagation(); this.take(s.id); },
+        onDismiss: (e) => { e.stopPropagation(); this.dismiss(s.id); }
+      };
+    });
+
+    const selRaw = st.signals.find(x => x.id === st.selId) || st.signals[0] || null;
+    const series = st.series;
+    let lo = Infinity, hi = -Infinity, maxV = 0;
+    series.forEach(c => { lo = Math.min(lo, c.l); hi = Math.max(hi, c.h); maxV = Math.max(maxV, c.v); });
+    if (selRaw) {
+      // Scale always contains every level line — they are the point of the chart.
+      lo = Math.min(lo, selRaw.stop, selRaw.target, selRaw.entry);
+      hi = Math.max(hi, selRaw.stop, selRaw.target, selRaw.entry);
+    }
+    const pad = (hi - lo) * 0.05; lo -= pad; hi += pad;
+    const topOf = p => (((hi - p) / (hi - lo)) * 100).toFixed(2) + '%';
+    const slot = 100 / series.length;
+
+    const candles = series.map((c, i) => {
+      const up = c.c >= c.o;
+      const col = up ? C.up : C.down;
+      const bTop = Math.max(c.o, c.c), bBot = Math.min(c.o, c.c);
+      return {
+        left: (i * slot + slot * 0.16).toFixed(3) + '%',
+        width: (slot * 0.68).toFixed(3) + '%',
+        color: col,
+        wickTop: topOf(c.h), wickH: (((c.h - c.l) / (hi - lo)) * 100).toFixed(2) + '%',
+        bodyTop: topOf(bTop), bodyH: Math.max(0.35, ((bTop - bBot) / (hi - lo)) * 100).toFixed(2) + '%',
+        volH: Math.max(6, (c.v / maxV) * 100).toFixed(1) + '%',
+        volColor: up ? 'oklch(0.45 0.08 158)' : 'oklch(0.42 0.09 22)'
+      };
+    });
+
+    const gridLines = Array.from({ length: 5 }, (_, i) => {
+      const p = hi - ((hi - lo) * (i + 0.5)) / 5;
+      return { top: (((i + 0.5) / 5) * 100).toFixed(2) + '%', label: p.toFixed(2) };
+    });
+
+    const levels = selRaw ? [
+      { label: 'ENTRY ' + selRaw.entry.toFixed(2), price: selRaw.entry, color: C.accent, chipBg: 'oklch(0.24 0.05 232)' },
+      { label: 'STOP ' + selRaw.stop.toFixed(2), price: selRaw.stop, color: C.down, chipBg: 'oklch(0.24 0.05 22)' },
+      { label: 'TGT ' + selRaw.target.toFixed(2), price: selRaw.target, color: C.up, chipBg: 'oklch(0.24 0.04 158)' }
+    ].map(l => ({ ...l, top: topOf(l.price) })) : [];
+
+    const chg = selRaw ? selRaw.last - series[0].o : 0;
+    const chgPct = selRaw ? (chg / series[0].o) * 100 : 0;
+    const sel = selRaw ? {
+      ticker: selRaw.ticker, company: selRaw.company, pattern: selRaw.pattern,
+      detected: selRaw.detected, tfLabel: st.tf,
+      lastFmt: selRaw.last.toFixed(2),
+      chgFmt: (chg >= 0 ? '+' : '−') + Math.abs(chgPct).toFixed(2) + '%',
+      chgColor: chg >= 0 ? C.up : C.down,
+      lastTop: topOf(selRaw.last),
+      onTake: () => this.take(selRaw.id),
+      onDismiss: () => this.dismiss(selRaw.id)
+    } : { ticker: '—', company: 'no signal selected', pattern: '—', detected: '—', tfLabel: st.tf, lastFmt: '—', chgFmt: '', chgColor: C.muted, lastTop: '50%', onTake: () => {}, onDismiss: () => {} };
+
+    const marker = selRaw ? {
+      left: ((series.length - 1) * slot + slot * 0.5).toFixed(2) + '%',
+      top: topOf(selRaw.entry),
+      color: selRaw.dir === 'LONG' ? C.up : C.down,
+      glyph: selRaw.dir === 'LONG' ? '▲' : '▼'
+    } : { left: '50%', top: '50%', color: 'transparent', glyph: '' };
+
+    const selStats = selRaw ? [
+      { label: 'DIRECTION', value: selRaw.dir, color: selRaw.dir === 'LONG' ? C.up : C.down, sub: 'signal #' + (4470 + parseInt(selRaw.id.replace(/\D/g, ''))) },
+      { label: 'CONFIDENCE', value: selRaw.conf + '%', color: selRaw.conf >= 85 ? C.up : C.amber, sub: 'pattern score' },
+      { label: 'R:R', value: (Math.abs(selRaw.target - selRaw.entry) / Math.abs(selRaw.entry - selRaw.stop)).toFixed(2) + 'R', color: C.text, sub: 'risk ' + this.money(-risk).replace('−', '') },
+      { label: 'HIST WIN', value: (selRaw.hist * 100).toFixed(0) + '%', color: C.text, sub: 'this pattern, 2y' },
+      { label: 'SUGG SIZE', value: Math.max(1, Math.round(risk / Math.abs(selRaw.entry - selRaw.stop))) + '', color: C.text, sub: 'shares @ 1R' }
+    ] : [];
+
+    const positions = st.positions.map(p => {
+      const sign = p.dir === 'LONG' ? 1 : -1;
+      const pnl = (p.last - p.avg) * p.qty * sign;
+      const pct = ((p.last - p.avg) / p.avg) * 100 * sign;
+      const r = (p.last - p.avg) * sign / Math.abs(p.avg - p.stop);
+      const span = Math.abs(p.target - p.stop);
+      const prog = Math.min(100, Math.max(0, (Math.abs(p.last - p.stop) / span) * 100));
+      const entryPos = Math.min(100, Math.max(0, (Math.abs(p.avg - p.stop) / span) * 100));
+      return {
+        ...p,
+        avg: p.avg.toFixed(2), last: p.last.toFixed(2), stop: p.stop.toFixed(2), target: p.target.toFixed(2),
+        qty: p.qty + (p.ticker.length > 5 ? ' ct' : ' sh'),
+        dirColor: p.dir === 'LONG' ? C.up : C.down,
+        dirBg: p.dir === 'LONG' ? 'oklch(0.26 0.04 158)' : 'oklch(0.26 0.05 22)',
+        pnlFmt: this.money(pnl), pnlColor: pnl >= 0 ? C.up : C.down,
+        pctFmt: (pct >= 0 ? '+' : '−') + Math.abs(pct).toFixed(2) + '%',
+        rFmt: (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2) + 'R',
+        progLeft: Math.min(entryPos, prog).toFixed(1) + '%',
+        progWidth: Math.abs(prog - entryPos).toFixed(1) + '%',
+        progLabel: prog.toFixed(0) + '% to tgt',
+        onClose: () => this.closePos(p.id),
+        onTrim: () => this.trimPos(p.id)
+      };
+    });
+
+    const openPnl = st.positions.reduce((a, p) => a + (p.last - p.avg) * p.qty * (p.dir === 'LONG' ? 1 : -1), 0);
+    const exposure = st.positions.reduce((a, p) => a + p.last * p.qty, 0);
+    const riskOn = st.positions.reduce((a, p) => a + Math.abs(p.avg - p.stop) * p.qty, 0);
+    const total = st.realized + openPnl;
+
+    const metrics = [
+      { label: 'WIN RATE', value: '63.4%', delta: '+1.8', deltaColor: C.up, color: C.text, bar: '63%', window: '90D' },
+      { label: 'TOTAL P&L', value: this.money(total).replace('+$', '$'), delta: (openPnl >= 0 ? '+' : '−') + '$' + Math.abs(openPnl).toFixed(0) + ' open', deltaColor: openPnl >= 0 ? C.up : C.down, color: total >= 0 ? C.up : C.down, bar: '78%', window: 'YTD' },
+      { label: 'PROFIT FACTOR', value: '2.14', delta: '+0.09', deltaColor: C.up, color: C.text, bar: '71%', window: '90D' },
+      { label: 'AVG R', value: '1.38R', delta: '−0.04', deltaColor: C.down, color: C.text, bar: '55%', window: '90D' },
+      { label: 'OPEN EXPOSURE', value: '$' + (exposure / 1000).toFixed(0) + 'k', delta: (riskOn / 5000 * 100).toFixed(1) + '% heat', deltaColor: C.amber, color: C.text, bar: Math.min(100, exposure / 3000).toFixed(0) + '%', window: 'NOW' }
+    ];
+
+    const timeframes = ['5m', '15m', '1h', '4h', '1D'].map(t => ({
+      label: t, onPick: () => this.setTf(t),
+      bg: t === st.tf ? 'oklch(0.32 0.06 232)' : 'oklch(0.225 0.01 250)',
+      color: t === st.tf ? 'oklch(0.88 0.10 232)' : C.muted
+    }));
+
+    const timeAxis = ['09:30', '10:45', '12:00', '13:15', '14:30', '15:45'].map(t => ({ label: t }));
+
+    return {
+      clock: this.now(), scanAgo: (28 + (st.tick % 30)) + 's', scanNext: (60 - (st.tick % 60)) + 's',
+      equityFmt: '$' + (487350 + total).toLocaleString('en-US', { maximumFractionDigits: 0 }),
+      dayPnlFmt: this.money(openPnl + 2140), dayColor: (openPnl + 2140) >= 0 ? C.up : C.down,
+      metrics, signals, signalCount: signals.length, signalsEmpty: signals.length === 0,
+      sortLabel: sortMode.toUpperCase(),
+      sel, selStats, candles, gridLines, levels, marker, timeframes, timeAxis,
+      positions, posCount: positions.length, posEmpty: positions.length === 0,
+      openPnlFmt: this.money(openPnl), openPnlColor: openPnl >= 0 ? C.up : C.down,
+      exposureFmt: '$' + exposure.toLocaleString('en-US', { maximumFractionDigits: 0 }),
+      riskFmt: '$' + riskOn.toLocaleString('en-US', { maximumFractionDigits: 0 }),
+      bpFmt: '$' + (192400 - exposure * 0.25).toLocaleString('en-US', { maximumFractionDigits: 0 }),
+      logs: st.logs.slice(0, 24).map(l => ({
+        ...l,
+        tagColor: l.tag === 'FILL' || l.tag === 'SIGNAL' ? C.accent : l.tag === 'EXIT' ? C.up : l.tag === 'REJECT' ? C.down : 'oklch(0.72 0.012 250)',
+        tagBg: l.tag === 'FILL' || l.tag === 'SIGNAL' ? 'oklch(0.26 0.05 232)' : l.tag === 'EXIT' ? 'oklch(0.25 0.04 158)' : l.tag === 'REJECT' ? 'oklch(0.25 0.05 22)' : 'oklch(0.27 0.012 250)'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>
