@@ -4,10 +4,12 @@ A technical-analysis signal desk. It scans the market for chart patterns,
 scores each one against the surrounding market context, and tracks the real
 trades you take on them.
 
-![Signal Desk](design/preview.webp)
+![Signal Desk](docs/screenshot.png)
 
 Three panels, left to right: signals the engine found, a chart of the selected
-one with its levels drawn on, and a journal of your open positions.
+one with its levels drawn on, and a journal of your open positions. The
+screenshot runs on live market data; the journal is seeded with sample trades
+to show the statistics populated.
 
 ## What it actually does
 

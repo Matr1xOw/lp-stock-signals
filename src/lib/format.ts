@@ -106,6 +106,37 @@ export function barLabel(unixSeconds: number, daily: boolean): string {
       });
 }
 
+/**
+ * Labels for the chart's time axis.
+ *
+ * Intraday bars are labelled with clock time, which reads as scrambled the
+ * moment the window spans more than one session: ninety 15-minute bars cover
+ * several days, so the labels run 13:00, 11:00, 15:30 — ascending in real
+ * time, but nonsense on the page. Prefixing the date whenever the day changes
+ * restores the ordering without repeating the date on every tick.
+ */
+export function axisLabels(
+  unixSeconds: number[],
+  daily: boolean,
+): string[] {
+  const dayOf = (t: number) =>
+    new Date(t * 1000).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "America/New_York",
+    });
+
+  let previousDay: string | null = null;
+  return unixSeconds.map((time) => {
+    if (daily) return barLabel(time, true);
+    const day = dayOf(time);
+    const clock = barLabel(time, false);
+    const label = day === previousDay ? clock : `${day} ${clock}`;
+    previousDay = day;
+    return label;
+  });
+}
+
 export function dateTime(timestampMs: number): string {
   return new Date(timestampMs).toLocaleString("en-US", {
     month: "short",

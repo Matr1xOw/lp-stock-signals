@@ -1,6 +1,6 @@
 "use client";
 
-import { barLabel, percent, price } from "@/lib/format";
+import { axisLabels, percent, price } from "@/lib/format";
 import { TIMEFRAMES, type Series, type Timeframe } from "@/lib/market/types";
 import type { Signal } from "@/lib/signals/types";
 
@@ -105,16 +105,20 @@ export function Chart({
     : [];
 
   // Six evenly spaced time labels, drawn from the bars themselves.
-  const axisTicks =
+  const tickIndices =
     candles.length > 0
-      ? Array.from({ length: 6 }, (_, i) => {
-          const index = Math.min(
-            candles.length - 1,
-            Math.round((i / 5) * (candles.length - 1)),
-          );
-          return { key: index, label: barLabel(candles[index].time, daily) };
-        })
+      ? Array.from({ length: 6 }, (_, i) =>
+          Math.min(candles.length - 1, Math.round((i / 5) * (candles.length - 1))),
+        )
       : [];
+  const tickLabels = axisLabels(
+    tickIndices.map((i) => candles[i].time),
+    daily,
+  );
+  const axisTicks = tickIndices.map((index, i) => ({
+    key: index,
+    label: tickLabels[i],
+  }));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[5px] border border-edge bg-panel">

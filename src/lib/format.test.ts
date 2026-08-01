@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { holdDuration, money, percent, price, timeAgo } from "./format";
+import { axisLabels, holdDuration, money, percent, price, timeAgo } from "./format";
 
 describe("holdDuration", () => {
   it("reports sub-hour spans in minutes", () => {
@@ -59,5 +59,31 @@ describe("timeAgo", () => {
   it("never reports negative time from clock skew", () => {
     const now = 1_700_000_000_000;
     assert.equal(timeAgo(now + 5_000, now), "0s ago");
+  });
+});
+
+describe("axisLabels", () => {
+  // 2026-07-30 13:30 UTC = 09:30 ET, the open.
+  const open = Math.floor(Date.UTC(2026, 6, 30, 13, 30) / 1000);
+  const hour = 3600;
+  const day = 86_400;
+
+  it("shows clock time only while the day does not change", () => {
+    const labels = axisLabels([open, open + hour, open + 2 * hour], false);
+    assert.deepEqual(labels, ["Jul 30 09:30", "10:30", "11:30"]);
+  });
+
+  it("re-prefixes the date whenever the day rolls over", () => {
+    // Without this, an intraday window spanning sessions reads as though
+    // time ran backwards: 15:30 followed by 09:30.
+    const labels = axisLabels([open + 6 * hour, open + day, open + day + hour], false);
+    assert.equal(labels[0], "Jul 30 15:30");
+    assert.equal(labels[1], "Jul 31 09:30");
+    assert.equal(labels[2], "10:30");
+  });
+
+  it("labels daily bars with dates throughout", () => {
+    const labels = axisLabels([open, open + day, open + 2 * day], true);
+    assert.deepEqual(labels, ["Jul 30", "Jul 31", "Aug 1"]);
   });
 });
