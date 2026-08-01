@@ -36,6 +36,14 @@ export type BacktestResult = {
    * rate at 0.5R is not, and win rate alone cannot tell those apart.
    */
   expectancy: number | null;
+  /**
+   * Median bars a past occurrence took to reach target or stop.
+   *
+   * The median rather than the mean, because these distributions have long
+   * right tails — one setup that ground on for seventy bars would drag an
+   * average into telling you to expect something typical never does.
+   */
+  medianBarsToResolve: number | null;
   /** Number of resolved trades behind `winRate`. */
   sample: number;
 };
@@ -69,8 +77,19 @@ const EMPTY: BacktestResult = {
   unresolved: 0,
   winRate: null,
   expectancy: null,
+  medianBarsToResolve: null,
   sample: 0,
 };
+
+/** Middle value of a list, averaging the two middles when even. */
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 export function backtestPattern(
   candles: Candle[],
@@ -83,6 +102,7 @@ export function backtestPattern(
   let losses = 0;
   let unresolved = 0;
   let totalR = 0;
+  const barsToResolve: number[] = [];
 
   for (let end = WARMUP; end < candles.length - MAX_HORIZON; end++) {
     // The detector sees exactly the bars available at the time.
@@ -110,12 +130,14 @@ export function backtestPattern(
       if (hitStop) {
         losses++;
         totalR -= 1;
+        barsToResolve.push(i - end);
         resolved = true;
         break;
       }
       if (hitTarget) {
         wins++;
         totalR += levels.rr;
+        barsToResolve.push(i - end);
         resolved = true;
         break;
       }
@@ -134,5 +156,6 @@ export function backtestPattern(
     sample,
     winRate: enough ? wins / sample : null,
     expectancy: enough ? totalR / sample : null,
+    medianBarsToResolve: enough ? median(barsToResolve) : null,
   };
 }

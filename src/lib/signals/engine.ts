@@ -313,6 +313,7 @@ export function buildSignal(
 
     historicalWinRate: history.winRate,
     historicalExpectancy: history.expectancy,
+    typicalHoldBars: history.medianBarsToResolve,
     historicalSample: history.sample,
   };
 }

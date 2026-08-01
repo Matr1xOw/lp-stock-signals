@@ -1,6 +1,6 @@
 "use client";
 
-import { dollars, timeAgo } from "@/lib/format";
+import { dollars, holdDuration, timeAgo } from "@/lib/format";
 import { useMounted, useTicker } from "@/lib/hooks";
 import { suggestedSize } from "@/lib/journal/stats";
 import type { Signal } from "@/lib/signals/types";
@@ -92,6 +92,18 @@ export function SignalDetail({
             ? "text-up"
             : "text-down",
       sub: "per prior setup",
+    },
+    {
+      label: "TYPICAL HOLD",
+      value:
+        signal.typicalHoldBars === null
+          ? "—"
+          : holdDuration(signal.typicalHoldBars, signal.timeframe),
+      tone: "text-ink",
+      sub:
+        signal.typicalHoldBars === null
+          ? "too few to measure"
+          : `median of ${signal.historicalSample}`,
     },
     {
       label: "SUGG SIZE",

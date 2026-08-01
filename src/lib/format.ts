@@ -1,4 +1,36 @@
+import type { Timeframe } from "@/lib/market/types";
+
 /** Display formatting shared across the desk. */
+
+/** Minutes of trading each timeframe's bar covers. */
+const BAR_MINUTES: Record<Timeframe, number> = {
+  "5m": 5,
+  "15m": 15,
+  "1h": 60,
+  "4h": 240,
+  "1D": 390,
+};
+
+/** A US equity session is 6.5 hours, not 24. */
+const SESSION_MINUTES = 390;
+
+/**
+ * Turns a bar count into wall-clock trading time: "45m", "2.8h", "1.3 days".
+ *
+ * Deliberately measures *trading* time rather than calendar time. Nine
+ * 15-minute bars is 2.3 hours of market, but if they straddle an overnight
+ * it is eighteen hours of clock — and the useful reading is how long the
+ * market has to work, not how long the user waits.
+ */
+export function holdDuration(bars: number, timeframe: Timeframe): string {
+  if (timeframe === "1D") {
+    return `${bars.toFixed(bars % 1 === 0 ? 0 : 1)} days`;
+  }
+  const minutes = bars * BAR_MINUTES[timeframe];
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  if (minutes < SESSION_MINUTES) return `${(minutes / 60).toFixed(1)}h`;
+  return `${(minutes / SESSION_MINUTES).toFixed(1)} days`;
+}
 
 /** Signed dollar amount, whole dollars: `+$3,840` / `−$212`. */
 export function money(value: number): string {

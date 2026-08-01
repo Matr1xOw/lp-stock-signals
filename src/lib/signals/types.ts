@@ -54,6 +54,11 @@ export type Signal = {
   historicalWinRate: number | null;
   /** Average R per historical occurrence — win rate alone can mislead. */
   historicalExpectancy: number | null;
+  /**
+   * Median bars past occurrences took to hit target or stop — how long this
+   * setup usually needs before it has answered one way or the other.
+   */
+  typicalHoldBars: number | null;
   historicalSample: number;
 };
 
