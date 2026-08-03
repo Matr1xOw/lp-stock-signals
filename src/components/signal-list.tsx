@@ -1,10 +1,12 @@
 "use client";
 
 import { price, timeAgo } from "@/lib/format";
-import { useMounted, useTicker } from "@/lib/hooks";
+import { useMounted, useSession, useTicker } from "@/lib/hooks";
 import { suggestedSize } from "@/lib/journal/stats";
+import { closedMarketNotice } from "@/lib/signals/execution";
 import type { Signal } from "@/lib/signals/types";
 import { DeskButton, Panel, Pill } from "./panel";
+import { ClosedBadge } from "./session-notice";
 
 export type SignalSort = "confidence" | "recent" | "rr";
 
@@ -57,6 +59,7 @@ export function SignalList({
 }) {
   const now = useTicker(15_000);
   const mounted = useMounted();
+  const { session } = useSession();
   const ordered = sortSignals(signals, sort);
 
   const cycleSort = () => {
@@ -100,6 +103,9 @@ export function SignalList({
           const long = signal.direction === "LONG";
           const tone = confidenceTone(signal.confidence);
           const size = suggestedSize(signal.entry, signal.stop, riskPerTrade, accountSize);
+          const closed = session
+            ? closedMarketNotice(signal, session, now)
+            : null;
 
           return (
             <div
@@ -173,6 +179,8 @@ export function SignalList({
                 <Cell label="TARGET" value={price(signal.target)} tone="text-up" />
                 <Cell label="R:R" value={`${signal.rr.toFixed(2)}R`} />
               </div>
+
+              {closed && <ClosedBadge notice={closed} />}
 
               <div className="flex items-center gap-2">
                 <span className="rounded-[2px] border border-edge-strong px-1.5 py-[3px] font-mono text-[9px] tracking-[0.06em] text-ink-dim">

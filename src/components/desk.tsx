@@ -12,7 +12,7 @@ import { SignalDetail } from "./signal-detail";
 import { SignalList, type SignalSort } from "./signal-list";
 import { TradeDialog, type TradeDraft } from "./trade-dialog";
 import { money, price as fmtPrice } from "@/lib/format";
-import { useCandles, useQuotes, useScan } from "@/lib/hooks";
+import { useCandles, useQuotes, useScan, useSession } from "@/lib/hooks";
 import { isOpen, performance as summarise } from "@/lib/journal/stats";
 import { useJournal } from "@/lib/journal/store";
 import type { Trade } from "@/lib/journal/types";
@@ -47,6 +47,11 @@ export function Desk() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const journal = useJournal();
+
+  // The header's light and the per-signal notifiers have to come from the
+  // same clock. Reading it from the scan would let the two disagree for up to
+  // a minute either side of the bell.
+  const { session } = useSession();
 
   const addLog = useCallback((tag: LogTag, text: string) => {
     setLog((entries) =>
@@ -173,7 +178,7 @@ export function Desk() {
     // page scrolls normally at those widths instead.
     <div className="flex min-h-screen w-full flex-col gap-2.5 px-3 pt-2.5 pb-3 xl:h-screen xl:min-h-0 xl:overflow-hidden">
       <Header
-        marketOpen={scan.data?.marketOpen ?? false}
+        marketOpen={session?.open ?? scan.data?.marketOpen ?? false}
         scannedAt={scan.data?.scannedAt ?? null}
         scanned={scan.data?.scanned ?? 0}
         universeSize={scan.data?.universeSize ?? 0}

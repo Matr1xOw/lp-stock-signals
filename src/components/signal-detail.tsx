@@ -1,10 +1,12 @@
 "use client";
 
 import { dollars, holdDuration, timeAgo } from "@/lib/format";
-import { useMounted, useTicker } from "@/lib/hooks";
+import { useMounted, useSession, useTicker } from "@/lib/hooks";
 import { suggestedSize } from "@/lib/journal/stats";
+import { closedMarketNotice } from "@/lib/signals/execution";
 import type { Signal } from "@/lib/signals/types";
 import { DeskButton } from "./panel";
+import { ClosedNote } from "./session-notice";
 
 /**
  * The strip beneath the chart: what was detected, and why it scored what it
@@ -31,6 +33,7 @@ export function SignalDetail({
 }) {
   const now = useTicker(15_000);
   const mounted = useMounted();
+  const { session } = useSession();
 
   if (!signal) {
     return (
@@ -42,6 +45,7 @@ export function SignalDetail({
 
   const long = signal.direction === "LONG";
   const size = suggestedSize(signal.entry, signal.stop, riskPerTrade, accountSize);
+  const closed = session ? closedMarketNotice(signal, session, now) : null;
 
   const stats = [
     {
@@ -155,6 +159,8 @@ export function SignalDetail({
           </DeskButton>
         </div>
       </div>
+
+      {closed && <ClosedNote notice={closed} />}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-hairline bg-sunken px-3.5 py-2">
         <span className="font-mono text-[9px] tracking-[0.14em] text-muted-3">

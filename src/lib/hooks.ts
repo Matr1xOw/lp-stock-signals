@@ -3,10 +3,12 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
+import { type SessionStatus, sessionStatus } from "@/lib/market/session";
 import type { Series, Timeframe } from "@/lib/market/types";
 import type { ScanResult } from "@/lib/signals/types";
 
@@ -173,4 +175,28 @@ export function useMounted(): boolean {
     () => true,
     () => false,
   );
+}
+
+/**
+ * Live exchange session state, and the clock it was read from.
+ *
+ * Read from the clock rather than from the last scan, because the scan's
+ * `marketOpen` is a fact about the past: at 09:30 the desk would go on
+ * claiming the market was shut until the next sweep came back. Anything
+ * telling you whether you can trade right now has to age in real time.
+ *
+ * `null` until hydration — the answer depends on the wall clock, so a server
+ * render of it is a hydration mismatch waiting to happen.
+ */
+export function useSession(intervalMs = 30_000): {
+  session: SessionStatus | null;
+  now: number;
+} {
+  const now = useTicker(intervalMs);
+  const mounted = useMounted();
+  const session = useMemo(
+    () => (mounted ? sessionStatus(now) : null),
+    [mounted, now],
+  );
+  return { session, now };
 }

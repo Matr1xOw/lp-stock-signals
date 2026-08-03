@@ -44,6 +44,15 @@ prefix of the series so detectors never see the future, and when a single bar
 spans both stop and target the stop is assumed to have hit first, since
 intrabar order is unknowable from OHLC.
 
+**Says when you can't act on it.** A signal found after the bell is still a
+signal, but it is not a trade you can take, so every card carries a notifier
+while the exchange is shut: how long until the open, and what that means for
+this particular setup. If price has already reached the trigger the entry is a
+fill on the open and the gap decides it; if the trigger is still out ahead, a
+resting order placed tonight works the next session on its own. The countdown
+runs off a real session calendar — weekends, holidays, and the 13:00 half-days
+— so it does not promise you an open on Thanksgiving.
+
 **Journals your real trades.** `LOG TRADE` pre-fills a ticket from the signal,
 but every field stays editable — the price you got is rarely the price on
 screen, and a journal that records the plan instead of the fill would corrupt
@@ -64,7 +73,7 @@ Then open <http://localhost:3000>. No API keys and no signup — market data
 comes from Yahoo Finance's public chart endpoints.
 
 ```bash
-npm test          # 61 unit tests, no network required
+npm test          # 90 unit tests, no network required
 npm run build     # production build
 npm run lint
 ```
@@ -82,7 +91,7 @@ src/
     candles/       bars for one symbol and timeframe
     quotes/        last prices, for marking positions
   lib/
-    market/        Yahoo client, caching, the scan universe
+    market/        Yahoo client, caching, the scan universe, session calendar
     analysis/      indicators, pattern detectors, backtest
     signals/       scoring engine and shared level construction
     journal/       trade model, statistics, persistence
@@ -111,6 +120,13 @@ relative-volume reading to zero.
 **The scan universe is curated, not exhaustive.** Around 90 liquid US names and
 sector ETFs, swept 40 at a time, because every symbol is an upstream request.
 Scans rotate through the list; "SCAN NEXT BATCH" advances to the next slice.
+
+**The holiday table needs extending each year.** `market/session.ts` hard-codes
+closures and half-days through 2027, because the observance rules are only
+simple until Good Friday and a Saturday Christmas get involved. Past the last
+date covered it degrades to plain weekday rules rather than failing, so the
+symptom of a stale table is a notifier cheerfully counting down to an open on
+Thanksgiving.
 
 **Your journal lives in this browser's localStorage.** There is no account and
 no server-side storage, so the export file is the only backup that exists —
