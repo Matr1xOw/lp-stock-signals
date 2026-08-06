@@ -13,7 +13,8 @@ worse. Everything below is arranged to make that impossible.
 ## What was measured
 
 Every detector run against every symbol in the first scan slice, three
-timeframes, on 2026-08-05:
+timeframes, on 2026-08-05. **These are the pre-2b baselines** — phase 2b has
+since shipped and moved them; see its section for the current figures.
 
 | Timeframe | symbol×pattern pairs | with a usable expectancy | median resolved sample |
 | --- | --- | --- | --- |
@@ -77,19 +78,54 @@ validated against outcomes.
   **and** by symbol (fit on half the universe, validate on the other). Without
   both, phase 2c is self-deception with extra steps.
 
-## Phase 2b — repair what is already wrong
+## Phase 2b — repair what is already wrong — **done**
 
-Found by reading, independent of any tuning, and all self-contained:
+Shipped 2026-08-05. Two of the four items in the original draft survived
+contact with the code; the record of what happened to each is more useful
+here than a tidy list.
 
-| Where | Issue |
-| --- | --- |
-| `backtest.ts:147` | `end += COOLDOWN` sits inside a `for (…; end++)` loop, so the effective cooldown is six bars, not the five the constant documents. |
-| `backtest.ts:107` | `MAX_HORIZON` (100) is reserved unconditionally, even for patterns whose horizon is 20. With 400 bars that leaves 220 of 320 post-warmup bars usable — **31% of available history discarded**. Reserve the per-trade horizon instead and book a trade that runs past the series end as unresolved. Cheapest available increase in sample size. |
-| `backtest.ts` | Maximum adverse excursion is not recorded. A few lines inside the existing resolve loop, and the foundation of the risk model in item 3 — stops today come from geometry (`invalidation ± 0.25 ATR`, then clamped) rather than from measured heat. |
-| `engine.ts:82` | The 40% default for an unmeasurable sample needs re-deriving once pooling exists. It is currently a guess doing a lot of work. |
+**Horizon reserve — fixed.** `backtestPattern` reserved `MAX_HORIZON` (100
+bars) unconditionally, even for patterns whose horizon works out at 20. The
+replay is now bounded by `MIN_HORIZON` and skips individual occurrences that
+lack their full horizon, so a fast-resolving pattern gets eighty more bars of
+history. Occurrences short of their horizon are skipped rather than booked
+unresolved, which would have biased the record toward whatever resolves fast.
 
-Phase 2b should raise the 49% measurable figure on its own, which makes
-everything after it better powered.
+**Adverse excursion — added.** `BacktestResult.typicalHeatR` is the median
+maximum adverse excursion among winning trades, in R. Winners only: the losers
+all ran to −1R by construction, so including them would just re-measure the
+stop. Surfaced on the signal as `TYPICAL HEAT`.
+
+**Cooldown off-by-one — was not a bug.** The original draft called out
+`end += COOLDOWN` sitting inside a `for (…; end++)` loop as an off-by-one. It
+is not. `COOLDOWN` is documented as "bars to skip after an occurrence", and
+skipping five bars after bar *N* means the next examined bar is *N+6* — which
+is exactly what the two increments produce together. Left alone.
+
+**`scoreEdge`'s 40% default — deferred to 2c.** Re-deriving it only makes
+sense once pooling exists to replace it.
+
+### What it actually bought
+
+| Timeframe | measurable before | after | median sample | median winner heat |
+| --- | --- | --- | --- | --- |
+| 15m | 49% | **53%** | 5 → 6 | 0.48R |
+| 1h | 48% | **54%** | 6 → 7 | 0.51R |
+| 1D | 38% | **39%** | 6 → 6 | 0.55R |
+
+Smaller than the "31% of bars discarded" figure implies, and worth
+understanding why: horizon scales with target distance, so most patterns ask
+for something near the 100-bar cap anyway and the reserve was genuinely needed
+for them. Only the fast-resolving tail benefited. Four to six points of extra
+coverage is real but it does not change the picture — the sample problem is a
+data problem, and 2c is still where it gets addressed.
+
+**The heat number is the more interesting result.** A typical winner goes
+about half of the way to its stop before working, consistently across all
+three timeframes. That is a reassuring reading for stop placement — stops sit
+at roughly twice the heat a winner takes, so they are not obviously strangling
+trades — and it is the first empirical check the geometry has ever had. It is
+also the input 3-risk needs.
 
 ## Phase 2c — pooling, then tuning
 
@@ -153,19 +189,20 @@ testability, honest sizing, and portfolio awareness. The quality gains live in
 
 ## Order, and why
 
-1. **2a** — harness, plus the `EDGE` split-half test. Start here; a negative
+1. ~~**2b** — the repairs.~~ Done 2026-08-05; measurements above.
+2. **2a** — harness, plus the `EDGE` split-half test. Start here; a negative
    result invalidates work you would otherwise do.
-2. **2b** — the four repairs. Best sample-size gain per unit effort.
 3. **3-risk** — MAE-based stops, gap exposure, sizing. Most visible
-   improvement to anyone actually using the desk.
+   improvement to anyone actually using the desk, and `typicalHeatR` from 2b
+   is already in place to feed it.
 4. **2c** — pooling, then tuning under hold-out.
 5. **3-alpha** — calibrated expected-R, once there is power to calibrate
    against.
 
-Rough sizing: 2b is an afternoon. 2a is a couple of days, dominated by the
-O(n²) `EDGE` problem. 3-risk is a few days. 2c and 3-alpha are each a week or
-more and genuinely open-ended, because what they should do depends on what 2a
-measures.
+Rough sizing: 2b was an afternoon, as estimated. 2a is a couple of days,
+dominated by the O(n²) `EDGE` problem. 3-risk is a few days. 2c and 3-alpha
+are each a week or more and genuinely open-ended, because what they should do
+depends on what 2a measures.
 
 ## What would invalidate this
 
