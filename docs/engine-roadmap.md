@@ -309,16 +309,63 @@ Two different diseases, and they need different treatment:
   target adjustment rescues that. Either the detection criteria are wrong or
   the pattern does not work on intraday bars.
 
+### The target sweep — measured 2026-08-06, and the geometry theory is wrong
+
+`npm run target-sweep`. Same trades throughout, `MIN_RR` deliberately not
+applied — a smaller target lowers reward-to-risk, and filtering on it would
+have compared different populations rather than different exits. At f = 0.6
+several patterns retain nothing at all, which is exactly the trap.
+
+| pattern | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1.0 | early/late argmax |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| VOL BREAKOUT | 0.030 | 0.063 | 0.083 | 0.118 | 0.118 | 0.147 | **0.192** | 1 / 1 |
+| BEAR ENGULF | −0.032 | −0.011 | −0.024 | −0.030 | −0.011 | 0.016 | **0.019** | 0.8 / 1 |
+| BULL ENGULF | −0.101 | −0.081 | −0.084 | −0.068 | −0.056 | −0.019 | **0.031** | 0.5 / 1 |
+| VOL BREAKDOWN | −0.061 | −0.070 | −0.047 | −0.049 | −0.036 | −0.017 | **−0.004** | 1 / 0.4 |
+| BULL FLAG | −0.233 | −0.184 | −0.164 | −0.133 | −0.126 | −0.112 | **−0.104** | 1 / 0.7 |
+| ASC TRIANGLE | −0.401 | −0.415 | −0.377 | −0.348 | −0.279 | −0.274 | **−0.249** | 1 / 0.8 |
+| CUP & HANDLE | −0.481 | −0.354 | −0.355 | **−0.329** | −0.412 | −0.441 | −0.500 | **0.7 / 0.7** |
+| DESC TRIANGLE | −0.531 | −0.495 | −0.464 | −0.409 | −0.429 | −0.457 | **−0.402** | 0.7 / 0.8 |
+| BEAR FLAG | −0.478 | −0.463 | −0.443 | −0.449 | −0.443 | −0.438 | **−0.442** | 1 / 0.6 |
+| DOUBLE BOTTOM | −0.764 | −0.750 | −0.731 | −0.714 | −0.691 | −0.689 | **−0.677** | 1 / 0.8 |
+| DOUBLE TOP | −0.765 | −0.759 | −0.759 | −0.743 | −0.736 | −0.714 | **−0.697** | 1 / 0.9 |
+
+**The full measured move is best or joint-best for nine of eleven patterns.**
+Pulling the target in makes things monotonically worse for most of them.
+
+**The previous section's conclusion was wrong, and this is the correction.**
+Expectancy does track reward-to-risk inversely *across* patterns, but that is
+not a lever *within* one. Patterns that ask for more happen to be worse
+patterns; asking for less does not make any given pattern better. `BULL FLAG`
+was described here as "one point of win rate from viable" — it is not, because
+buying that point of win rate costs more R than it returns.
+
+There is a reason it comes out this way, and it should have been predicted.
+Under a driftless walk with a stop at *b* and a target at *a*, the probability
+of reaching the target first is `b / (a + b)`, so expectancy is zero at every
+target distance — moving the target trades win rate against payoff at a fair
+price and changes nothing. The mild preference for *larger* targets in the
+table is consistent with slight trend continuation after these setups. **Exit
+distance is close to EV-neutral by construction. A losing pattern is losing on
+entry.**
+
+Only `CUP & HANDLE` shows an interior optimum both halves agree on — 0.7,
+worth +0.17R. It is still −0.33R there, so it does not rescue anything, and
+n = 169 is thin. Not worth a special case.
+
+`TARGET_FRACTION` therefore stays at 1, now for a measured reason rather than
+by default, and `buildLevels` takes it as a parameter so the engine and the
+backtest cannot drift apart on it.
+
 ### Next here
 
-- **Sweep a target multiplier.** Re-run the replay with
-  `target = entry + f × (measured − entry)` for f from 0.4 to 1.0 and find
-  where each pattern maximises expectancy. Cheap with the existing harness and
-  it decides the geometry question outright. `BULL FLAG` alone is 2062 trades
-  of the desk's volume.
-- **Then decide on the doubles.** If they stay ~−19 at every f, delete them.
-  A detector that cannot produce a tradeable signal is dead weight in the scan
-  and a false promise in the README's "nine detectors".
+- **Delete or fix the losing detectors.** Exit tuning cannot save them, so the
+  question is entry quality. `DOUBLE TOP` and `DOUBLE BOTTOM` are −0.68R and
+  −0.70R over 2287 trades and are the clearest candidates for removal; the
+  README's "nine detectors" is a promise the scan is not keeping.
+- **Understand `VOL BREAKOUT`.** It is the one convincingly profitable pattern
+  (+0.19R over 361 trades, and it improves monotonically with target distance).
+  Whatever it is doing right is worth knowing before rewriting anything else.
 - **Priors come from one slice (31 symbols), not 92.** Good enough given the
   slices now interleave, but a prior accumulated across a full sweep would be
   three times better powered.

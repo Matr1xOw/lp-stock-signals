@@ -19,6 +19,16 @@ export type Levels = {
   risk: number;
 };
 
+/**
+ * How much of the pattern's measured move to actually aim at.
+ *
+ * 1 is the full measured move, which is what the desk shipped until the
+ * target sweep in docs/engine-roadmap.md measured what it costs. Exported so
+ * the live engine and the backtest cannot drift apart on it — the whole
+ * reason this module exists — and overridable so the harness can sweep it.
+ */
+export const TARGET_FRACTION = 1;
+
 /** Widest stop we will accept, as a fraction of entry price. */
 const MAX_RISK_FRACTION = 0.1;
 /** Stops are placed this far beyond the level that invalidates the pattern. */
@@ -31,6 +41,7 @@ export function buildLevels(
   match: PatternMatch,
   atr: number,
   close: number,
+  targetFraction: number = TARGET_FRACTION,
 ): Levels | null {
   if (!Number.isFinite(atr) || atr <= 0) return null;
 
@@ -66,7 +77,9 @@ export function buildLevels(
   // A stop this wide means the pattern is too large to trade at this size.
   if (risk / entry > MAX_RISK_FRACTION) return null;
 
-  const target = match.measured;
+  // Aiming at a fraction of the measured move pulls the target toward entry
+  // along the same line, so the direction handling stays in one place.
+  const target = entry + targetFraction * (match.measured - entry);
   const reward = long ? target - entry : entry - target;
   // Price may have already run to the objective; there is no trade left.
   if (!(reward > 0)) return null;

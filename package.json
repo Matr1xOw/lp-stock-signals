@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint --config config/eslint.config.mjs",
     "test": "node --import tsx --test 'src/**/*.test.ts'",
-    "reliability": "tsx scripts/reliability.mts"
+    "reliability": "tsx scripts/reliability.mts",
+    "target-sweep": "tsx scripts/target-sweep.mts"
   },
   "dependencies": {
     "next": "16.2.12",

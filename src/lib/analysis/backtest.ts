@@ -163,6 +163,8 @@ export type BacktestTrade = {
 export function backtestTrades(
   candles: Candle[],
   patternName: string,
+  /** Fraction of the measured move to target. Defaults to the engine's. */
+  targetFraction?: number,
 ): BacktestTrade[] {
   if (candles.length < WARMUP + MIN_HORIZON + 10) return [];
 
@@ -179,7 +181,12 @@ export function backtestTrades(
     const match = detectPattern(history, patternName);
     if (!match) continue;
 
-    const levels = buildLevels(match, atr[end], candles[end].close);
+    const levels = buildLevels(
+      match,
+      atr[end],
+      candles[end].close,
+      targetFraction,
+    );
     if (!levels) continue;
 
     const long = match.direction === "LONG";
