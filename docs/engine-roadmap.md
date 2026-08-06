@@ -40,8 +40,9 @@ Resolved outcomes are −1R or roughly +2R, so the standard error on a five-
 trade expectancy is around ±0.6R. `NEGATIVE_EDGE_VETO` fires at −0.35R with a
 ten-trade minimum (`engine.ts:54`), where the standard error is still about
 ±0.44R. **That veto is currently rejecting signals on noise more often than on
-evidence.** This is an estimate from the outcome distribution, not a
-measurement — confirming it is the first task in 2a.
+evidence.** This was an estimate from the outcome distribution rather than a
+measurement; 2a has since confirmed the conclusion by a different route —
+the statistic the veto reads correlates 0.03 with the future at 15m.
 
 ### The tuning trap
 
@@ -53,7 +54,70 @@ Constants currently set by hand: six factor weights, `MIN_RR` (1.5),
 sample is five will fit noise, and every reported figure will improve. Hence
 the ordering below: measurement, then repair, then tuning.
 
-## Phase 2a — make the engine measurable
+## Phase 2a — the `EDGE` reliability test — **done, and it came back negative**
+
+Run 2026-08-05 over all 92 symbols, every detector, three timeframes:
+`npm run reliability` (needs `npm run dev` up). Units are symbol/pattern
+pairs; a unit is usable when it has at least three resolved trades on each
+side of a split.
+
+| Timeframe | pairs | internal (odd/even) | corrected | past → future | pooled → future |
+| --- | --- | --- | --- | --- | --- |
+| 15m | 425 | 0.577 | 0.731 | **0.033** | **0.227** |
+| 1h | 499 | 0.499 | 0.666 | **0.141** | **0.265** |
+| 1D | 407 | 0.535 | 0.697 | **0.269** | 0.201 |
+
+### What this says
+
+**Expectancy is a real property, not noise.** Internal consistency of 0.50–0.58
+is substantial. Split a pair's trades odd/even and the two halves agree. The
+original worry — that `EDGE` is five coin flips — is wrong.
+
+**But it does not carry forward, and that is what the engine needs.** Split
+the same trades chronologically instead and the correlation collapses to
+**0.033 at 15m**, the desk's default timeframe. Measured edge describes the
+window it was measured in and says almost nothing about the next one.
+
+The two splits use **the same amount of data per half**, so the gap between
+them is not a sample-size artefact. It isolates one variable: time. This is
+non-stationarity, cleanly identified.
+
+**Pooling beats symbol-specific history intraday, by a lot.** The pattern's
+record across every *other* symbol predicts a pair's future better than its
+own past does — 0.227 against 0.033 at 15m, 0.265 against 0.141 at 1h. The
+symbol-specific detail is noise at intraday timeframes. Daily reverses it
+(0.269 against 0.201), which fits: 400 daily bars span about 1.6 years, so
+each chronological half is roughly ten months and there is real per-symbol
+history to find.
+
+One honest caveat on that comparison. A symbol-specific predictor is a mean of
+three to six trades and carries large measurement error, which attenuates its
+correlation; the pooled predictor averages far more trades and is attenuated
+less. Part of the gap is that, not a smaller true symbol effect. **It does not
+change the decision** — in live use only three to six trades exist per pair,
+so the attenuated figure *is* the achievable predictive power. But the
+underlying per-symbol effect is larger than 0.033 and a future harness with
+more history might find it.
+
+### What follows
+
+1. **`EDGE` as currently computed is worth close to nothing at 15m** while
+   carrying 18 of 100 confidence points. It is not decoration — the internal
+   consistency proves there is something there — but it is being asked a
+   question it cannot answer.
+2. **`NEGATIVE_EDGE_VETO` is firing on a statistic with r = 0.03 to the
+   future** at intraday timeframes. It is rejecting signals on evidence that
+   does not generalise. This is now the most defensible single change
+   available: pool it or drop it.
+3. **Pooling is validated, and 2c is promoted.** It was scoped as a fix for
+   thin samples; it is really a fix for non-stationarity, and it should be
+   weighted by timeframe — pooled hard intraday, blended toward
+   symbol-specific on daily.
+4. The harness for scoring *confidence* against realised R — the other half of
+   the original 2a — has not been built. It is still worth doing, but the
+   `EDGE` result changes what it should test first.
+
+## Phase 2a (original scope) — the confidence harness
 
 Nothing currently tests the engine's central claim: **that a signal scoring 80
 outperforms one scoring 60.** The backtest measures *pattern* expectancy.
@@ -68,12 +132,9 @@ validated against outcomes.
   at every step, which is O(n²). Either compute it on an expanding window at
   intervals and hold it flat between, or validate the other five first and
   fold `EDGE` in once the harness exists.
-- **Split-half reliability on `EDGE`.** Deal each pair's occurrences
-  alternately into two buckets and compare the bucket means. If they do not
-  correlate, `EDGE` is measuring noise, and both the eighteen-point weight and
-  the veto are unjustified. This is the cheapest decisive experiment
-  available; run it before touching anything else, because a negative result
-  changes phases 2c and 3 substantially.
+- ~~Split-half reliability on `EDGE`.~~ Done — see the section above. The
+  machinery it needed (`backtestTrades`, `analysis/reliability.ts`) is in
+  place and reusable for the confidence harness.
 - Hold-outs are not optional: by time (fit on older bars, validate on recent)
   **and** by symbol (fit on half the universe, validate on the other). Without
   both, phase 2c is self-deception with extra steps.
@@ -127,7 +188,7 @@ at roughly twice the heat a winner takes, so they are not obviously strangling
 trades — and it is the first empirical check the geometry has ever had. It is
 also the input 3-risk needs.
 
-## Phase 2c — pooling, then tuning
+## Phase 2c — pooling, then tuning — **now the top item**
 
 The fix for thin samples is not more tuning, it is **pooling**. Estimate a
 pattern-level prior across the whole universe, then shrink each symbol-
@@ -135,6 +196,22 @@ specific expectancy toward it (empirical Bayes). `BULL FLAG` across ninety
 symbols has real statistical power; `BULL FLAG on SCHW` never will at 400
 bars. This also removes the binary measurable/unmeasurable cliff that makes
 `EDGE` a constant today.
+
+2a promoted this from a nice-to-have to the fix for a measured defect, and
+sharpened what it should look like:
+
+- **Shrink by timeframe, not by a single constant.** Pooling beat
+  symbol-specific history 0.227 to 0.033 at 15m and 0.265 to 0.141 at 1h, but
+  *lost* 0.201 to 0.269 on daily. One shrinkage weight across all five
+  timeframes would give away the daily result to rescue the intraday one.
+- **The veto has to move with it.** `NEGATIVE_EDGE_VETO` reads the
+  symbol-specific number, which is the one that does not generalise. It should
+  read the pooled estimate or go.
+- **Validate behind the same chronological split.** `poolingComparison` in
+  `analysis/reliability.ts` is the shape of the test; a pooled `EDGE` has to
+  beat the current one at predicting *future* R, not at fitting the window it
+  was estimated on. The current factor already looks excellent by that
+  standard, which is exactly the trap.
 
 **The binding constraint is data, not code.** `MAX_BARS` is 400 in
 `market/yahoo.ts`, and Yahoo will not give more on these endpoints. Pooling
@@ -190,12 +267,14 @@ testability, honest sizing, and portfolio awareness. The quality gains live in
 ## Order, and why
 
 1. ~~**2b** — the repairs.~~ Done 2026-08-05; measurements above.
-2. **2a** — harness, plus the `EDGE` split-half test. Start here; a negative
-   result invalidates work you would otherwise do.
-3. **3-risk** — MAE-based stops, gap exposure, sizing. Most visible
+2. ~~**2a** — the `EDGE` split-half test.~~ Done 2026-08-05; it came back
+   negative on the temporal split, which promoted 2c.
+3. **2c** — pooling, timeframe-weighted, validated behind a chronological
+   split. Now the highest-value item: it is the fix for a measured defect
+   rather than a speculative improvement.
+4. **3-risk** — MAE-based stops, gap exposure, sizing. Most visible
    improvement to anyone actually using the desk, and `typicalHeatR` from 2b
    is already in place to feed it.
-4. **2c** — pooling, then tuning under hold-out.
 5. **3-alpha** — calibrated expected-R, once there is power to calibrate
    against.
 
@@ -206,23 +285,32 @@ depends on what 2a measures.
 
 ## What would invalidate this
 
-- **`EDGE` passes split-half reliability convincingly.** Then the eighteen-
-  point weight is defensible, the veto stands, and pooling becomes a
-  refinement rather than a rescue.
-- **`EDGE` fails badly.** Then consider removing the factor and the veto
-  outright rather than pooling them into respectability. Fewer factors
-  honestly measured beats six with one that is decoration.
-- **Confidence turns out to be non-monotonic with realised R.** That is a
-  finding about the weights, not about the factors, and it would promote 2c
-  ahead of item 3.
+- ~~**`EDGE` passes split-half reliability convincingly.**~~ Settled
+  2026-08-05: it passes internally and fails temporally. Neither branch this
+  section anticipated — the answer was "real but non-stationary", which
+  promotes pooling rather than deletion. See phase 2a above.
+- **Confidence turns out to be non-monotonic with realised R.** Still open.
+  That is a finding about the weights, not the factors, and it would promote
+  2c further still.
+- **Pooling does not survive its own out-of-sample test.** The 0.227 figure is
+  a correlation across pairs, not a demonstration that a pooled `EDGE` scores
+  better signals. Build 2c behind the same chronological split that produced
+  these numbers, or it will look like an improvement for the same reason the
+  current factor does.
 - **A data source with real history appears.** Most of the statistical
   contortion above exists only because of the 400-bar ceiling.
 
-## Appendix — the measurement script
+## Appendix — the harnesses
 
-Needs `npm run dev` running. Save at the repo root as `power-check.mts`, run
-`npx tsx power-check.mts 15m`, and delete it afterwards — it is a probe, not
-part of the app.
+`npm run reliability [timeframes…]` is committed at `scripts/reliability.mts`
+and produces the 2a table. It needs `npm run dev` up, because it reads bars
+through `/api/candles` rather than importing `market/yahoo.ts`, which is
+`server-only` and throws outside a Next runtime. `analysis/reliability.ts`
+holds the statistics and is unit-tested against constructed signal and
+constructed noise, so a null result can be trusted as a null result.
+
+The coverage probe below is not committed — it is a throwaway. Save it at the
+repo root as `power-check.mts`, run `npx tsx power-check.mts 15m`, delete it.
 
 ```ts
 import { backtestPattern } from "./src/lib/analysis/backtest";
