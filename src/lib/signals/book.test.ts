@@ -30,6 +30,7 @@ function signal(symbol: string, pattern = "BULL FLAG"): Signal {
     historicalWinRate: null,
     historicalExpectancy: null,
     typicalHoldBars: null,
+    typicalHeatR: null,
     historicalSample: 0,
   };
 }

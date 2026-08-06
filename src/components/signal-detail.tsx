@@ -112,6 +112,23 @@ export function SignalDetail({
           : `median of ${signal.historicalSample}`,
     },
     {
+      label: "TYPICAL HEAT",
+      value:
+        signal.typicalHeatR === null
+          ? "—"
+          : `${signal.typicalHeatR.toFixed(2)}R`,
+      tone:
+        signal.typicalHeatR === null
+          ? "text-ink"
+          : signal.typicalHeatR >= 0.75
+            ? "text-amber"
+            : "text-ink",
+      sub:
+        signal.typicalHeatR === null
+          ? "too few winners"
+          : "against you first",
+    },
+    {
       label: "SUGG SIZE",
       value: `${size}`,
       tone: "text-ink",

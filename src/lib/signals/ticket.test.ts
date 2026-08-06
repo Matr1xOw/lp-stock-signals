@@ -34,6 +34,7 @@ const signal: Signal = {
   historicalWinRate: 0.61,
   historicalExpectancy: 0.42,
   typicalHoldBars: 9,
+  typicalHeatR: 0.41,
   historicalSample: 18,
 };
 

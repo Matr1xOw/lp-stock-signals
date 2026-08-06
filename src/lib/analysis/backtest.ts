@@ -44,6 +44,20 @@ export type BacktestResult = {
    * average into telling you to expect something typical never does.
    */
   medianBarsToResolve: number | null;
+  /**
+   * Median maximum adverse excursion among *winning* trades, in R.
+   *
+   * How far a trade that eventually worked went against you first. Winners
+   * only, because the losers all ran to −1R by definition and averaging them
+   * in would just re-measure the stop.
+   *
+   * This is the empirical answer to a question the stop placement currently
+   * guesses at: levels come from pattern geometry (`invalidation ± 0.25 ATR`,
+   * then clamped), and nothing checks that against how much heat the setup
+   * actually takes. A reading near 1 means the stop is barely surviving its
+   * own winners.
+   */
+  typicalHeatR: number | null;
   /** Number of resolved trades behind `winRate`. */
   sample: number;
 };
@@ -58,8 +72,8 @@ export type BacktestResult = {
  * *opportunity* to work, rather than the same number of bars.
  */
 function horizonFor(rewardAtr: number): number {
-  if (!Number.isFinite(rewardAtr)) return 20;
-  return Math.max(20, Math.min(100, Math.round(rewardAtr * 10)));
+  if (!Number.isFinite(rewardAtr)) return MIN_HORIZON;
+  return Math.max(MIN_HORIZON, Math.min(MAX_HORIZON, Math.round(rewardAtr * 10)));
 }
 
 /** Bars to skip after an occurrence, so one setup is not counted repeatedly. */
@@ -68,8 +82,17 @@ const COOLDOWN = 5;
 const WARMUP = 80;
 /** Below this many resolved trades, a win rate is noise. */
 const MIN_SAMPLE = 5;
-/** Longest horizon any trade may use, reserved at the end of the series. */
+/** Shortest and longest horizon `horizonFor` will hand out. */
+const MIN_HORIZON = 20;
 const MAX_HORIZON = 100;
+/**
+ * Winners needed before a heat figure means anything.
+ *
+ * Lower than `MIN_SAMPLE` because this is a median of a bounded quantity —
+ * winner heat lies in [0, 1R) by construction, since a winner never touched
+ * its stop — so it stabilises faster than an expectancy does.
+ */
+const MIN_HEAT_SAMPLE = 3;
 
 const EMPTY: BacktestResult = {
   wins: 0,
@@ -78,6 +101,7 @@ const EMPTY: BacktestResult = {
   winRate: null,
   expectancy: null,
   medianBarsToResolve: null,
+  typicalHeatR: null,
   sample: 0,
 };
 
@@ -95,7 +119,7 @@ export function backtestPattern(
   candles: Candle[],
   patternName: string,
 ): BacktestResult {
-  if (candles.length < WARMUP + MAX_HORIZON + 10) return EMPTY;
+  if (candles.length < WARMUP + MIN_HORIZON + 10) return EMPTY;
 
   const atr = atrSeries(candles, 14);
   let wins = 0;
@@ -103,8 +127,13 @@ export function backtestPattern(
   let unresolved = 0;
   let totalR = 0;
   const barsToResolve: number[] = [];
+  const winnerHeat: number[] = [];
 
-  for (let end = WARMUP; end < candles.length - MAX_HORIZON; end++) {
+  // Bounded by the *shortest* horizon any trade could be given, not the
+  // longest. Reserving MAX_HORIZON unconditionally threw away eighty bars of
+  // usable history for every fast-resolving pattern; occurrences that turn
+  // out to need more room are skipped individually below.
+  for (let end = WARMUP; end < candles.length - MIN_HORIZON; end++) {
     // The detector sees exactly the bars available at the time.
     const history = candles.slice(0, end + 1);
     const match = detectPattern(history, patternName);
@@ -117,10 +146,21 @@ export function backtestPattern(
     const horizon = horizonFor(
       Math.abs(levels.target - levels.entry) / atr[end],
     );
+
+    // Score only an occurrence whose full horizon is available. Truncating it
+    // at the end of the series would book slow winners as unresolved and bias
+    // the record toward whatever happens to resolve quickly.
+    if (end + horizon >= candles.length) continue;
+
     let resolved = false;
+    // Worst excursion against the trade before it resolved, in price.
+    let heat = 0;
 
     for (let i = end + 1; i <= end + horizon; i++) {
       const bar = candles[i];
+      const adverse = long ? levels.entry - bar.low : bar.high - levels.entry;
+      if (adverse > heat) heat = adverse;
+
       const hitStop = long ? bar.low <= levels.stop : bar.high >= levels.stop;
       const hitTarget = long
         ? bar.high >= levels.target
@@ -138,6 +178,7 @@ export function backtestPattern(
         wins++;
         totalR += levels.rr;
         barsToResolve.push(i - end);
+        winnerHeat.push(heat / levels.risk);
         resolved = true;
         break;
       }
@@ -157,5 +198,7 @@ export function backtestPattern(
     winRate: enough ? wins / sample : null,
     expectancy: enough ? totalR / sample : null,
     medianBarsToResolve: enough ? median(barsToResolve) : null,
+    typicalHeatR:
+      winnerHeat.length >= MIN_HEAT_SAMPLE ? median(winnerHeat) : null,
   };
 }

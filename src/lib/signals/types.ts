@@ -59,6 +59,11 @@ export type Signal = {
    * setup usually needs before it has answered one way or the other.
    */
   typicalHoldBars: number | null;
+  /**
+   * Median heat a past winner took before working, in R — 0.4 means the
+   * typical winning trade went 40% of the way to the stop first.
+   */
+  typicalHeatR: number | null;
   historicalSample: number;
 };
 
