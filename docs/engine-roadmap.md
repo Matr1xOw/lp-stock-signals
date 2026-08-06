@@ -258,17 +258,67 @@ in the rescuing direction — DOUBLE TOP goes to −0.77R. The mismatch is real
 but not the explanation. `BacktestTrade.rr` now carries the figure so the
 question can be re-asked cheaply.
 
-### Still open here
+### The tie-break is not the explanation — measured 2026-08-06
 
-- **Should the losing detectors be removed rather than vetoed?** A detector
-  that never produces a tradeable signal is dead weight in the scan and a
-  false promise in the README's "nine detectors". Vetoing is the reversible
-  choice; deleting is the honest one if this survives re-measurement.
-- **Why is almost everything negative?** Mean pooled expectancy across the
-  eleven is about −0.3R. The pessimistic tie-break — a bar spanning stop and
-  target counts as a loss — is the obvious suspect and has never been
-  quantified. Worth measuring before concluding the detectors are bad rather
-  than the scoring being harsh.
+The suspicion was that the pessimistic intrabar assumption was depressing
+every pattern. It is not. Across 8189 resolved trades at 15m, **32 resolve on
+an ambiguous bar — 0.4%.** Total expectancy across all patterns moves from
+−0.348 (pessimistic, shipped) to −0.337 (optimistic). A range of 0.011R.
+
+That is arithmetically obvious in hindsight: stops sit around 1 ATR out and
+targets 2–5 ATR, so a single bar covering both needs a 3-plus ATR range, which
+15-minute bars rarely have. Truncation is not the explanation either — only
+4.1% of occurrences never resolve. `BacktestTrade` now carries `ambiguous` and
+`openedTowardTarget` so this stays checkable rather than becoming folklore.
+
+### It is the targets — except where it is the detector
+
+Splitting win rate from reward-to-risk separates the two, and the structure is
+unmistakable. `breakeven%` is the win rate each pattern's own R:R requires;
+`gap` is what it actually achieves minus that.
+
+| pattern | n | win% | mean R:R | breakeven% | gap | expectancy |
+| --- | --- | --- | --- | --- | --- | --- |
+| VOL BREAKOUT | 361 | 51.8 | 1.37 | 42.2 | **+9.6** | +0.202 |
+| VOL BREAKDOWN | 331 | 42.6 | 1.43 | 41.2 | +1.4 | +0.000 |
+| BULL ENGULF | 180 | 39.4 | 1.69 | 37.2 | +2.2 | +0.036 |
+| BEAR ENGULF | 210 | 39.5 | 1.61 | 38.3 | +1.2 | −0.001 |
+| BULL FLAG | 2062 | 22.3 | 3.29 | 23.3 | **−1.0** | −0.102 |
+| ASC TRIANGLE | 369 | 17.9 | 3.49 | 22.3 | −4.4 | −0.259 |
+| CUP & HANDLE | 169 | 10.7 | 4.78 | 17.3 | −6.7 | −0.500 |
+| DESC TRIANGLE | 343 | 15.5 | 3.35 | 23.0 | −7.5 | −0.408 |
+| BEAR FLAG | 1877 | 14.7 | 3.21 | 23.8 | −9.1 | −0.439 |
+| DOUBLE BOTTOM | 1092 | 12.5 | 2.22 | 31.0 | **−18.6** | −0.673 |
+| DOUBLE TOP | 1195 | 11.2 | 2.26 | 30.7 | **−19.5** | −0.702 |
+
+**Every pattern asking under 1.7R is at or above breakeven. Every pattern
+asking over 2R is below it.** Expectancy tracks mean R:R inversely across the
+whole table. `buildLevels` sets `target = match.measured` — the full measured
+move — and the full measured move is not reached often enough to pay for the
+distance being asked.
+
+Two different diseases, and they need different treatment:
+
+- **The flags, triangles and cup are geometry.** They ask 3–5R and land 11–22%.
+  `BULL FLAG` is the striking one: a −1.0 gap over 2062 trades, one point of
+  win rate away from viable, and the most common pattern on the desk. Scaling
+  targets back should raise win rate faster than it lowers R:R for all of
+  these.
+- **`DOUBLE TOP` and `DOUBLE BOTTOM` are the detectors.** They ask a modest
+  2.2R and still miss breakeven by nineteen points across 2287 trades. No
+  target adjustment rescues that. Either the detection criteria are wrong or
+  the pattern does not work on intraday bars.
+
+### Next here
+
+- **Sweep a target multiplier.** Re-run the replay with
+  `target = entry + f × (measured − entry)` for f from 0.4 to 1.0 and find
+  where each pattern maximises expectancy. Cheap with the existing harness and
+  it decides the geometry question outright. `BULL FLAG` alone is 2062 trades
+  of the desk's volume.
+- **Then decide on the doubles.** If they stay ~−19 at every f, delete them.
+  A detector that cannot produce a tradeable signal is dead weight in the scan
+  and a false promise in the README's "nine detectors".
 - **Priors come from one slice (31 symbols), not 92.** Good enough given the
   slices now interleave, but a prior accumulated across a full sweep would be
   three times better powered.
