@@ -135,6 +135,23 @@ export type BacktestTrade = {
   heatR: number;
   /** Reward-to-risk the levels offered. The engine declines below MIN_RR. */
   rr: number;
+  /**
+   * The resolving bar's range covered both stop and target, and the stop was
+   * assumed to have come first.
+   *
+   * Intrabar order is genuinely unknowable from OHLC, so the assumption has to
+   * be made somewhere. Recording where it was made is what makes its cost
+   * measurable instead of a permanent article of faith.
+   */
+  ambiguous: boolean;
+  /**
+   * On an ambiguous bar, whether it opened nearer the target than the stop.
+   *
+   * A bar that opens two thirds of the way to the target and reaches both
+   * probably touched the target first. Weak evidence, but strictly better than
+   * a coin flip, and it costs nothing to record.
+   */
+  openedTowardTarget: boolean;
 };
 
 /**
@@ -191,6 +208,8 @@ export function backtestTrades(
 
       // Pessimistic on ambiguity: a bar that spans both counts as a loss.
       if (hitStop) {
+        const toStop = Math.abs(bar.open - levels.stop);
+        const toTarget = Math.abs(bar.open - levels.target);
         trade = {
           index: end,
           outcome: "LOSS",
@@ -198,6 +217,8 @@ export function backtestTrades(
           barsToResolve: i - end,
           heatR: heat / levels.risk,
           rr: levels.rr,
+          ambiguous: hitTarget,
+          openedTowardTarget: hitTarget && toTarget < toStop,
         };
         break;
       }
@@ -209,6 +230,8 @@ export function backtestTrades(
           barsToResolve: i - end,
           heatR: heat / levels.risk,
           rr: levels.rr,
+          ambiguous: false,
+          openedTowardTarget: false,
         };
         break;
       }
@@ -222,6 +245,8 @@ export function backtestTrades(
         barsToResolve: null,
         heatR: heat / levels.risk,
         rr: levels.rr,
+        ambiguous: false,
+        openedTowardTarget: false,
       },
     );
     end += COOLDOWN;
