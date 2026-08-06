@@ -188,7 +188,92 @@ at roughly twice the heat a winner takes, so they are not obviously strangling
 trades — and it is the first empirical check the geometry has ever had. It is
 also the input 3-risk needs.
 
-## Phase 2c — pooling, then tuning — **now the top item**
+## Phase 2c — pooling — **shipped 2026-08-06**
+
+`analysis/pooling.ts` blends a symbol's own expectancy toward the pattern's
+record across the rest of the scan, `weight = n / (n + k)`. The engine scores
+and vetoes on the blended figure.
+
+**`k` was measured, not chosen.** `npm run reliability` sweeps it against
+out-of-sample future R, priors built from past halves only, each unit excluded
+from its own prior. Every timeframe improved on `k = 0`, which is what the
+engine did before:
+
+| tf | k = 0 (before) | chosen k | at chosen k | best k seen |
+| --- | --- | --- | --- | --- |
+| 5m | 0.364 | 16 | **0.419** | 16 (0.419) |
+| 15m | 0.029 | 64 | **0.188** | ∞ (0.222) |
+| 1h | 0.141 | 64 | **0.263** | 128 (0.265) |
+| 4h | 0.074 | 64 | **0.185** | 128 (0.191) |
+| 1D | 0.267 | 8 | **0.286** | 8 (0.286) |
+
+15m improves roughly sixfold. Two constants sit off the measured argmax on
+purpose — the optimum is itself an estimate from 300–500 non-independent
+pairs, the curves are flat near the top, and permanently discarding a symbol's
+record is a strong claim to make from one afternoon's data. The cost of that
+caution is about 0.03 of correlation.
+
+**The ordering is not monotonic in timeframe and should not be forced to be.**
+5m persists best because 400 five-minute bars span about a week, so both halves
+sit in one regime. 1D persists because 400 daily bars span 1.6 years and there
+is real per-symbol history. The middle is where a record is both short-lived
+and thin.
+
+Shrinkage also dissolves the flat-7.2 problem: an estimate is now defined for
+every pair, leaning on the prior when there is nothing else.
+
+### It exposed something bigger than the pooling
+
+With the prior in place, most detectors turn out to be **losing patterns on
+large samples**. Pooled expectancy at 15m across all 92 symbols:
+
+| pattern | expectancy | n |
+| --- | --- | --- |
+| VOL BREAKOUT | **+0.19R** | 363 |
+| BULL ENGULF | +0.05R | 181 |
+| VOL BREAKDOWN | −0.00R | 330 |
+| BEAR ENGULF | −0.02R | 208 |
+| BULL FLAG | −0.11R | 2063 |
+| ASC TRIANGLE | −0.26R | 367 |
+| DESC TRIANGLE | −0.41R | 343 |
+| BEAR FLAG | −0.45R | 1875 |
+| CUP & HANDLE | −0.49R | 167 |
+| DOUBLE BOTTOM | −0.68R | 1094 |
+| DOUBLE TOP | −0.70R | 1197 |
+
+Symbol-specific noise was hiding this. A pattern with −0.7R everywhere shows
++0.3R on some symbols by chance, and that is what the engine was scoring.
+
+Since `NEGATIVE_EDGE_VETO` is −0.35R and now reads the pooled figure, five of
+the eleven detectors are vetoed universally at 15m. Signals across the whole
+universe fall from 16 to 10. **This is the engine working as designed** — it
+is precisely the "trade whose own history argues against it" the veto was
+written for — but it is a large behavioural change resting on one day's
+measurement, and it deserves a decision rather than a default.
+
+Checked before accepting it: the backtest scores every occurrence while the
+engine declines `rr < 1.5`, so the prior was measuring a population the desk
+does not trade. 86% of trades clear the filter and applying it moves nothing
+in the rescuing direction — DOUBLE TOP goes to −0.77R. The mismatch is real
+but not the explanation. `BacktestTrade.rr` now carries the figure so the
+question can be re-asked cheaply.
+
+### Still open here
+
+- **Should the losing detectors be removed rather than vetoed?** A detector
+  that never produces a tradeable signal is dead weight in the scan and a
+  false promise in the README's "nine detectors". Vetoing is the reversible
+  choice; deleting is the honest one if this survives re-measurement.
+- **Why is almost everything negative?** Mean pooled expectancy across the
+  eleven is about −0.3R. The pessimistic tie-break — a bar spanning stop and
+  target counts as a loss — is the obvious suspect and has never been
+  quantified. Worth measuring before concluding the detectors are bad rather
+  than the scoring being harsh.
+- **Priors come from one slice (31 symbols), not 92.** Good enough given the
+  slices now interleave, but a prior accumulated across a full sweep would be
+  three times better powered.
+
+## Phase 2c — the original scope, for reference
 
 The fix for thin samples is not more tuning, it is **pooling**. Estimate a
 pattern-level prior across the whole universe, then shrink each symbol-
@@ -269,9 +354,8 @@ testability, honest sizing, and portfolio awareness. The quality gains live in
 1. ~~**2b** — the repairs.~~ Done 2026-08-05; measurements above.
 2. ~~**2a** — the `EDGE` split-half test.~~ Done 2026-08-05; it came back
    negative on the temporal split, which promoted 2c.
-3. **2c** — pooling, timeframe-weighted, validated behind a chronological
-   split. Now the highest-value item: it is the fix for a measured defect
-   rather than a speculative improvement.
+3. ~~**2c** — pooling, timeframe-weighted.~~ Shipped 2026-08-06; it works, and
+   it exposed that five of eleven detectors lose money on large samples.
 4. **3-risk** — MAE-based stops, gap exposure, sizing. Most visible
    improvement to anyone actually using the desk, and `typicalHeatR` from 2b
    is already in place to feed it.
