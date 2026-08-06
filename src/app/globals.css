@@ -2,8 +2,8 @@
 
 /*
  * Signal Desk design tokens.
- * Ported from design/signal-desk.dc.html — a dark trading-terminal palette
- * built on a single blue-grey hue (250) with three semantic accents.
+ * A dark trading-terminal palette built on a single blue-grey hue (250)
+ * with three semantic accents.
  */
 @theme {
   /* Surfaces, darkest to lightest */

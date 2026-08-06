@@ -12,9 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Vendored reference material, not application code: the exported
-    // Claude Design mockup this dashboard was built from.
-    "design/**",
   ]),
 ]);
 

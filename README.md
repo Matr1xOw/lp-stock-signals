@@ -96,6 +96,7 @@ src/
     signals/       scoring engine and shared level construction
     journal/       trade model, statistics, persistence
   components/      the desk and its panels
+config/            eslint
 ```
 
 A few things worth knowing if you work on it:
