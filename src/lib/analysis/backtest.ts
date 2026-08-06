@@ -115,19 +115,40 @@ function median(values: number[]): number | null {
     : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-export function backtestPattern(
+/**
+ * One historical occurrence, scored.
+ *
+ * Exposed because the aggregates above cannot answer questions about the
+ * *distribution* — split-half reliability, whether the record is stable over
+ * time, whether it pools across symbols. Those all need the individual trades
+ * in the order they happened.
+ */
+export type BacktestTrade = {
+  /** Bar the pattern was detected on. Ascending across the returned list. */
+  index: number;
+  outcome: "WIN" | "LOSS" | "UNRESOLVED";
+  /** Realised R. Zero for a trade that never resolved. */
+  r: number;
+  /** Bars to reach target or stop; `null` if it never did. */
+  barsToResolve: number | null;
+  /** Maximum excursion against the trade before it resolved, in R. */
+  heatR: number;
+};
+
+/**
+ * Replays a detector over a symbol's history and scores every occurrence.
+ *
+ * The honesty constraints documented on {@link BacktestResult} all live here;
+ * `backtestPattern` is a summary of what this returns.
+ */
+export function backtestTrades(
   candles: Candle[],
   patternName: string,
-): BacktestResult {
-  if (candles.length < WARMUP + MIN_HORIZON + 10) return EMPTY;
+): BacktestTrade[] {
+  if (candles.length < WARMUP + MIN_HORIZON + 10) return [];
 
   const atr = atrSeries(candles, 14);
-  let wins = 0;
-  let losses = 0;
-  let unresolved = 0;
-  let totalR = 0;
-  const barsToResolve: number[] = [];
-  const winnerHeat: number[] = [];
+  const trades: BacktestTrade[] = [];
 
   // Bounded by the *shortest* horizon any trade could be given, not the
   // longest. Reserving MAX_HORIZON unconditionally threw away eighty bars of
@@ -152,7 +173,7 @@ export function backtestPattern(
     // the record toward whatever happens to resolve quickly.
     if (end + horizon >= candles.length) continue;
 
-    let resolved = false;
+    let trade: BacktestTrade | null = null;
     // Worst excursion against the trade before it resolved, in price.
     let heat = 0;
 
@@ -168,24 +189,69 @@ export function backtestPattern(
 
       // Pessimistic on ambiguity: a bar that spans both counts as a loss.
       if (hitStop) {
-        losses++;
-        totalR -= 1;
-        barsToResolve.push(i - end);
-        resolved = true;
+        trade = {
+          index: end,
+          outcome: "LOSS",
+          r: -1,
+          barsToResolve: i - end,
+          heatR: heat / levels.risk,
+        };
         break;
       }
       if (hitTarget) {
-        wins++;
-        totalR += levels.rr;
-        barsToResolve.push(i - end);
-        winnerHeat.push(heat / levels.risk);
-        resolved = true;
+        trade = {
+          index: end,
+          outcome: "WIN",
+          r: levels.rr,
+          barsToResolve: i - end,
+          heatR: heat / levels.risk,
+        };
         break;
       }
     }
 
-    if (!resolved) unresolved++;
+    trades.push(
+      trade ?? {
+        index: end,
+        outcome: "UNRESOLVED",
+        r: 0,
+        barsToResolve: null,
+        heatR: heat / levels.risk,
+      },
+    );
     end += COOLDOWN;
+  }
+
+  return trades;
+}
+
+export function backtestPattern(
+  candles: Candle[],
+  patternName: string,
+): BacktestResult {
+  const trades = backtestTrades(candles, patternName);
+  if (trades.length === 0) return EMPTY;
+
+  let wins = 0;
+  let losses = 0;
+  let unresolved = 0;
+  let totalR = 0;
+  const barsToResolve: number[] = [];
+  const winnerHeat: number[] = [];
+
+  for (const trade of trades) {
+    if (trade.outcome === "UNRESOLVED") {
+      unresolved++;
+      continue;
+    }
+    totalR += trade.r;
+    barsToResolve.push(trade.barsToResolve as number);
+    if (trade.outcome === "WIN") {
+      wins++;
+      winnerHeat.push(trade.heatR);
+    } else {
+      losses++;
+    }
   }
 
   const sample = wins + losses;
