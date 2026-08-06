@@ -133,6 +133,8 @@ export type BacktestTrade = {
   barsToResolve: number | null;
   /** Maximum excursion against the trade before it resolved, in R. */
   heatR: number;
+  /** Reward-to-risk the levels offered. The engine declines below MIN_RR. */
+  rr: number;
 };
 
 /**
@@ -195,6 +197,7 @@ export function backtestTrades(
           r: -1,
           barsToResolve: i - end,
           heatR: heat / levels.risk,
+          rr: levels.rr,
         };
         break;
       }
@@ -205,6 +208,7 @@ export function backtestTrades(
           r: levels.rr,
           barsToResolve: i - end,
           heatR: heat / levels.risk,
+          rr: levels.rr,
         };
         break;
       }
@@ -217,6 +221,7 @@ export function backtestTrades(
         r: 0,
         barsToResolve: null,
         heatR: heat / levels.risk,
+        rr: levels.rr,
       },
     );
     end += COOLDOWN;

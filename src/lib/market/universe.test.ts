@@ -37,6 +37,20 @@ describe("scanSlice", () => {
     assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1);
   });
 
+  it("interleaves, so no slice is one sector of the list", () => {
+    // The universe is written in sector order and the engine pools each
+    // scan's symbols into its pattern priors, so a contiguous slice would
+    // estimate a sector's prior and call it the universe's.
+    const first = scanSlice(0);
+    const all: readonly string[] = UNIVERSE;
+    const positions = first.map((s) => all.indexOf(s));
+    const span = Math.max(...positions) - Math.min(...positions);
+    assert.ok(
+      span > UNIVERSE.length * 0.9,
+      `slice 0 spans only ${span} of ${UNIVERSE.length} positions`,
+    );
+  });
+
   it("cycles, so the rotation can count up forever", () => {
     assert.deepEqual(scanSlice(passCount()), scanSlice(0));
     assert.deepEqual(scanSlice(passCount() * 7 + 1), scanSlice(1));

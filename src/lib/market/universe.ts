@@ -68,12 +68,18 @@ export function passCount(batch = SCAN_BATCH): number {
  *
  * Slices are evenly sized rather than packed to `batch`, so each scan carries
  * the same upstream load instead of ending the cycle on a stub.
+ *
+ * They interleave rather than taking contiguous blocks, because the universe
+ * is written in sector order. Contiguous slices would make pass 0 entirely
+ * mega-cap tech, which matters for more than variety: the engine pools each
+ * scan's symbols into the pattern priors that phase 2c shrinks toward, and a
+ * prior estimated from one sector is a sector's prior wearing the universe's
+ * name. Taking every Nth symbol gives each pass a cross-section.
  */
 export function scanSlice(pass: number, batch = SCAN_BATCH): string[] {
   const passes = passCount(batch);
   // Negative passes are not expected, but modulo them into range rather than
   // returning an empty slice that would silently expire the whole book.
   const index = ((Math.trunc(pass) % passes) + passes) % passes;
-  const size = Math.ceil(UNIVERSE.length / passes);
-  return UNIVERSE.slice(index * size, index * size + size);
+  return UNIVERSE.filter((_, i) => i % passes === index);
 }

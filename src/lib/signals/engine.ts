@@ -1,6 +1,14 @@
 import "server-only";
 
-import { backtestPattern } from "@/lib/analysis/backtest";
+import { backtestPattern, backtestTrades } from "@/lib/analysis/backtest";
+import {
+  DEFAULT_SHRINKAGE,
+  EDGE_SHRINKAGE,
+  poolPriorsExcluding,
+  type Prior,
+  shrink,
+  type Unit,
+} from "@/lib/analysis/pooling";
 import {
   adx as adxSeries,
   atr as atrSeries,
@@ -11,7 +19,11 @@ import {
   returns,
   rsi as rsiSeries,
 } from "@/lib/analysis/indicators";
-import { detectPattern, detectPatterns } from "@/lib/analysis/patterns";
+import {
+  detectPattern,
+  detectPatterns,
+  PATTERN_NAMES,
+} from "@/lib/analysis/patterns";
 import { getManySeries, getSeries } from "@/lib/market/yahoo";
 import { BENCHMARK, passCount, scanSlice, UNIVERSE } from "@/lib/market/universe";
 import type { Series, Timeframe } from "@/lib/market/types";
@@ -67,26 +79,37 @@ function scorePattern(quality: number): Weighted {
 }
 
 /**
- * Measured edge: how this exact pattern has actually performed on this exact
- * symbol, from the backtest.
+ * Measured edge: how this pattern has actually performed, from the backtest.
  *
  * Scored on expectancy rather than win rate, because win rate on its own is
  * not an edge — a pattern that wins 20% of the time at 6R makes money and one
- * that wins 60% at 0.4R does not. An unmeasurable sample gets partial credit:
- * unknown is not the same as bad, but it should not outrank a pattern with a
- * demonstrated record either.
+ * that wins 60% at 0.4R does not.
+ *
+ * The expectancy handed in is the symbol's own record already blended toward
+ * the pattern's record across the rest of the scan. It used to be the symbol's
+ * record alone, which phase 2a measured as almost uncorrelated with what
+ * happened next. `sample` still counts only this symbol's trades, because that
+ * is what the detail line is telling the reader about.
  */
-function scoreEdge(expectancy: number | null, sample: number): Weighted {
+function scoreEdge(
+  expectancy: number | null,
+  sample: number,
+  pooled: boolean,
+): Weighted {
   const max = 18;
   if (expectancy === null) {
-    return { points: max * 0.4, max, detail: `only ${sample} prior setups` };
+    return { points: max * 0.4, max, detail: "no measured record" };
   }
   // −0.5R earns nothing, +1R earns full marks.
   const normalised = Math.max(0, Math.min(1, (expectancy + 0.5) / 1.5));
+  const sign = expectancy >= 0 ? "+" : "−";
+  const value = `${sign}${Math.abs(expectancy).toFixed(2)}R`;
   return {
     points: normalised * max,
     max,
-    detail: `${expectancy >= 0 ? "+" : "−"}${Math.abs(expectancy).toFixed(2)}R over ${sample} setups`,
+    detail: pooled
+      ? `${value}, ${sample} setups here blended with the pattern's record`
+      : `${value} over ${sample} setups`,
   };
 }
 
@@ -207,6 +230,12 @@ export function buildSignal(
   series: Series,
   benchmarkReturns: number[],
   minConfidence: number = DEFAULT_MIN_CONFIDENCE,
+  /**
+   * Pattern-level expectancy pooled across the other symbols in this scan.
+   * Absent, scoring falls back to the symbol's own record alone — which is
+   * what phase 2a measured at r = 0.03 to the future on 15m bars.
+   */
+  priors?: Map<string, Prior>,
 ): Signal | null {
   const { candles } = series;
   if (candles.length < 80) return null;
@@ -247,17 +276,34 @@ export function buildSignal(
   // with a demonstrated history of losing money on this symbol cannot be
   // promoted to the top of the list by good-looking geometry.
   const history = backtestPattern(candles, best.name);
+
+  // What the engine actually scores is the symbol's record blended toward the
+  // pattern's record everywhere. Phase 2a measured why: on 15m bars a pair's
+  // own expectancy correlates 0.03 with its own future and the pooled figure
+  // correlates 0.22, so the unblended number is close to no information at
+  // all. Shrinking lifts that to 0.19 out of sample.
+  const prior = priors?.get(best.name) ?? null;
+  const edge = shrink(
+    history.expectancy,
+    history.sample,
+    prior,
+    EDGE_SHRINKAGE[series.timeframe] ?? DEFAULT_SHRINKAGE,
+  );
+
+  // The veto reads the blended figure for the same reason. Rejecting a signal
+  // outright on a statistic that does not generalise is the most expensive
+  // thing a scan can do with it.
   if (
-    history.expectancy !== null &&
-    history.expectancy < NEGATIVE_EDGE_VETO &&
-    history.sample >= VETO_MIN_SAMPLE
+    edge !== null &&
+    edge < NEGATIVE_EDGE_VETO &&
+    history.sample + (prior?.sample ?? 0) >= VETO_MIN_SAMPLE
   ) {
     return null;
   }
 
   const weighted: Array<[string, Weighted]> = [
     ["PATTERN", scorePattern(best.score)],
-    ["EDGE", scoreEdge(history.expectancy, history.sample)],
+    ["EDGE", scoreEdge(edge, history.sample, prior !== null)],
     ["TREND", scoreTrend(currentAdx, currentPlusDi, currentMinusDi, long)],
     ["MOMENTUM", scoreMomentum(histogram, currentRsi, long)],
     ["VOLUME", scoreVolume(relVolume)],
@@ -327,6 +373,29 @@ export type ScanOptions = {
   minConfidence?: number;
 };
 
+/**
+ * Every pattern's realised trades on every symbol in a scan, as pooling units.
+ *
+ * This is the input the priors are estimated from. It replays all eleven
+ * detectors over every symbol rather than the one that happens to be scoring
+ * best, which costs about 1.6s of CPU for a slice and avoids a selection
+ * effect that would otherwise be invisible: pooling only the patterns that
+ * currently look best on a symbol estimates a prior from the cases already
+ * selected for looking good.
+ */
+function poolingUnits(series: Series[]): Unit[] {
+  const units: Unit[] = [];
+  for (const s of series) {
+    for (const pattern of PATTERN_NAMES) {
+      const rs = backtestTrades(s.candles, pattern)
+        .filter((t) => t.outcome !== "UNRESOLVED")
+        .map((t) => t.r);
+      if (rs.length > 0) units.push({ key: s.symbol, group: pattern, rs });
+    }
+  }
+  return units;
+}
+
 /** Sweeps a slice of the universe and returns everything that qualified. */
 export async function scan({
   timeframe,
@@ -344,10 +413,20 @@ export async function scan({
 
   const { series, failed } = await getManySeries(symbols, timeframe);
 
+  const units = poolingUnits(series);
+
   const signals = series
     .map((s) => {
       try {
-        return buildSignal(s, benchmarkReturns, minConfidence);
+        // Priors exclude the symbol being scored. A prior a symbol helped
+        // build is partly a measurement of itself, and shrinking toward it
+        // would quietly hand back the noise this is meant to remove.
+        return buildSignal(
+          s,
+          benchmarkReturns,
+          minConfidence,
+          poolPriorsExcluding(units, s.symbol),
+        );
       } catch {
         // One malformed series must not take down the whole scan.
         return null;
