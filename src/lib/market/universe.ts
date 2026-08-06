@@ -37,7 +37,7 @@ export const UNIVERSE = [
 export type UniverseSymbol = (typeof UNIVERSE)[number];
 
 /**
- * How many symbols a single scan may touch.
+ * The most symbols a single scan may touch.
  *
  * The full universe at once is ~100 upstream requests. The cache absorbs
  * repeat scans, but the first one is cold, so scans rotate through slices.
@@ -45,17 +45,35 @@ export type UniverseSymbol = (typeof UNIVERSE)[number];
 export const SCAN_BATCH = 40;
 
 /**
+ * How many passes it takes to cover the universe once.
+ *
+ * The desk rotates through these continuously, so this is also the length of
+ * a full sweep — every symbol is looked at once per `passCount()` scans.
+ */
+export function passCount(batch = SCAN_BATCH): number {
+  return Math.ceil(UNIVERSE.length / Math.max(1, batch));
+}
+
+/**
  * Returns the slice of the universe to scan on a given pass.
  *
- * Successive passes advance through the list, so a few scans cover everything
- * while each individual scan stays polite.
+ * The passes partition the universe: every symbol belongs to exactly one, and
+ * `passCount()` consecutive passes cover all of it with nothing repeated.
+ *
+ * That property is the whole point, and an earlier stride-based version did
+ * not have it — advancing by a fixed 40 through 92 symbols made pass 2 re-scan
+ * 28 names from pass 0 while pass 3 started mid-list. The desk now expires a
+ * signal when its symbol was swept and it did not come back, which is only
+ * sound if "swept" is something the rotation actually guarantees.
+ *
+ * Slices are evenly sized rather than packed to `batch`, so each scan carries
+ * the same upstream load instead of ending the cycle on a stub.
  */
 export function scanSlice(pass: number, batch = SCAN_BATCH): string[] {
-  const size = Math.min(batch, UNIVERSE.length);
-  const start = (pass * size) % UNIVERSE.length;
-  const slice = UNIVERSE.slice(start, start + size);
-  // Wrap around the end of the list rather than returning a short batch.
-  return slice.length < size
-    ? [...slice, ...UNIVERSE.slice(0, size - slice.length)]
-    : [...slice];
+  const passes = passCount(batch);
+  // Negative passes are not expected, but modulo them into range rather than
+  // returning an empty slice that would silently expire the whole book.
+  const index = ((Math.trunc(pass) % passes) + passes) % passes;
+  const size = Math.ceil(UNIVERSE.length / passes);
+  return UNIVERSE.slice(index * size, index * size + size);
 }

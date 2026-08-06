@@ -145,6 +145,29 @@ export function useQuotes(
   return { prices, error };
 }
 
+/**
+ * Advances the scan pass on its own timer.
+ *
+ * Deliberately not driven by scan completion. `usePolled` keys its effect on
+ * the URL, so bumping the pass when a scan lands would change the URL, restart
+ * the effect, fetch immediately, and land again — a hot loop running as fast
+ * as the upstream answers rather than once per interval.
+ */
+export function useRotatingPass(rotateEveryMs: number): {
+  pass: number;
+  advance: () => void;
+} {
+  const [pass, setPass] = useState(0);
+  const advance = useCallback(() => setPass((p) => p + 1), []);
+
+  useEffect(() => {
+    const timer = setInterval(advance, rotateEveryMs);
+    return () => clearInterval(timer);
+  }, [rotateEveryMs, advance]);
+
+  return { pass, advance };
+}
+
 /** A value that updates on an interval, for clocks and relative times. */
 export function useTicker(intervalMs = 1_000): number {
   const [now, setNow] = useState(() => Date.now());

@@ -3,6 +3,7 @@
 import { price, timeAgo } from "@/lib/format";
 import { useMounted, useSession, useTicker } from "@/lib/hooks";
 import { suggestedSize } from "@/lib/journal/stats";
+import { type BookEntry, isStale } from "@/lib/signals/book";
 import { closedMarketNotice } from "@/lib/signals/execution";
 import { signalTicket } from "@/lib/signals/ticket";
 import type { Signal } from "@/lib/signals/types";
@@ -18,11 +19,13 @@ export const SORT_LABELS: Record<SignalSort, string> = {
   rr: "REWARD:RISK",
 };
 
-function sortSignals(signals: Signal[], sort: SignalSort): Signal[] {
-  const sorted = [...signals];
-  if (sort === "rr") return sorted.sort((a, b) => b.rr - a.rr);
-  if (sort === "recent") return sorted.sort((a, b) => b.detectedAt - a.detectedAt);
-  return sorted.sort((a, b) => b.confidence - a.confidence);
+function sortEntries(entries: BookEntry[], sort: SignalSort): BookEntry[] {
+  const sorted = [...entries];
+  if (sort === "rr") return sorted.sort((a, b) => b.signal.rr - a.signal.rr);
+  if (sort === "recent") {
+    return sorted.sort((a, b) => b.signal.detectedAt - a.signal.detectedAt);
+  }
+  return sorted.sort((a, b) => b.signal.confidence - a.signal.confidence);
 }
 
 /** Confidence colour, matching the thresholds used in the stat bar. */
@@ -33,9 +36,10 @@ function confidenceTone(confidence: number) {
 }
 
 export function SignalList({
-  signals,
+  entries,
   selectedId,
   sort,
+  sweepMs,
   loading,
   error,
   riskPerTrade,
@@ -46,9 +50,11 @@ export function SignalList({
   onDismiss,
   onRescan,
 }: {
-  signals: Signal[];
+  entries: BookEntry[];
   selectedId: string | null;
   sort: SignalSort;
+  /** How long a full sweep takes, for judging when a signal is overdue. */
+  sweepMs: number;
   loading: boolean;
   error: string | null;
   riskPerTrade: number;
@@ -62,7 +68,7 @@ export function SignalList({
   const now = useTicker(15_000);
   const mounted = useMounted();
   const { session } = useSession();
-  const ordered = sortSignals(signals, sort);
+  const ordered = sortEntries(entries, sort);
 
   const cycleSort = () => {
     const order: SignalSort[] = ["confidence", "recent", "rr"];
@@ -73,8 +79,8 @@ export function SignalList({
     <Panel
       title="ALGO SIGNALS"
       badge={
-        <Pill tone={signals.length > 0 ? "accent" : "neutral"}>
-          {signals.length} LIVE
+        <Pill tone={entries.length > 0 ? "accent" : "neutral"}>
+          {entries.length} LIVE
         </Pill>
       }
       actions={
@@ -100,7 +106,8 @@ export function SignalList({
       className="flex-1"
     >
       <div className="flex min-h-0 flex-1 flex-col gap-[7px] overflow-y-auto p-2">
-        {ordered.map((signal) => {
+        {ordered.map((entry) => {
+          const signal = entry.signal;
           const selected = signal.id === selectedId;
           const long = signal.direction === "LONG";
           const tone = confidenceTone(signal.confidence);
@@ -108,6 +115,10 @@ export function SignalList({
           const closed = session
             ? closedMarketNotice(signal, session, now)
             : null;
+          // Overdue for re-confirmation: the rotation should have come back
+          // to this symbol by now. Dimmed rather than removed, because the
+          // setup may well still be good — it is the desk that is behind.
+          const stale = mounted && isStale(entry, now, sweepMs);
 
           return (
             <div
@@ -125,7 +136,7 @@ export function SignalList({
                 selected
                   ? "border-accent-edge bg-selected"
                   : "border-track bg-raised hover:border-edge-hover"
-              }`}
+              } ${stale && !selected ? "opacity-55" : ""}`}
             >
               <div className="flex items-center gap-2">
                 <span
@@ -183,6 +194,18 @@ export function SignalList({
               </div>
 
               {closed && <ClosedBadge notice={closed} />}
+
+              {stale && (
+                <div
+                  className="flex items-center gap-1.5 rounded-[3px] border border-edge-strong px-2 py-[3px]"
+                  title={`The sweep takes about ${Math.round(sweepMs / 60_000)} minutes and should have rechecked ${signal.symbol} by now. Scans may be failing or throttled.`}
+                >
+                  <span className="font-mono text-[9px] tracking-[0.08em] text-muted-2">
+                    UNCONFIRMED · LAST SEEN{" "}
+                    {timeAgo(entry.lastConfirmedAt, now).toUpperCase()}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <span className="rounded-[2px] border border-edge-strong px-1.5 py-[3px] font-mono text-[9px] tracking-[0.06em] text-ink-dim">

@@ -73,6 +73,18 @@ export type SignalFactor = {
 
 export type ScanResult = {
   signals: Signal[];
+  /**
+   * Symbols this pass actually looked at and got data for.
+   *
+   * The desk accumulates signals across passes, which means it has to tell
+   * "this signal stopped qualifying" apart from "we did not look at its
+   * symbol this time". Only a symbol in here has been genuinely checked, so
+   * only a signal on one of these may be expired. Excludes `failed`.
+   */
+  covered: string[];
+  /** Which slice of the universe this was, and how many slices there are. */
+  pass: number;
+  passes: number;
   /** Symbols examined on this pass. */
   scanned: number;
   /** Symbols that failed to fetch. */

@@ -12,7 +12,19 @@ import { SignalDetail } from "./signal-detail";
 import { SignalList, type SignalSort } from "./signal-list";
 import { TradeDialog, type TradeDraft } from "./trade-dialog";
 import { money, price as fmtPrice } from "@/lib/format";
-import { useCandles, useQuotes, useScan, useSession } from "@/lib/hooks";
+import {
+  useCandles,
+  useQuotes,
+  useRotatingPass,
+  useScan,
+  useSession,
+} from "@/lib/hooks";
+import {
+  type Book,
+  EMPTY_BOOK,
+  mergeScan,
+  sweepPeriodMs,
+} from "@/lib/signals/book";
 import { isOpen, performance as summarise } from "@/lib/journal/stats";
 import { useJournal } from "@/lib/journal/store";
 import type { Trade } from "@/lib/journal/types";
@@ -29,12 +41,21 @@ import type { ScanResult, Signal } from "@/lib/signals/types";
  */
 
 const SCAN_INTERVAL_MS = 60_000;
+/**
+ * Polls spent on a slice before moving to the next.
+ *
+ * Every symbol gets looked at without anyone clicking anything, which is the
+ * point — but rotating on every poll would mean each scan is mostly cache
+ * misses, roughly 2.5× the upstream request rate. Yahoo's endpoints are free
+ * but throttle hard, and a 429'd scan helps nobody. Two polls per slice keeps
+ * the traffic near where it already was.
+ */
+const POLLS_PER_SLICE = 2;
 const MAX_LOG_ENTRIES = 60;
 
 export function Desk() {
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
   const [chartTimeframe, setChartTimeframe] = useState<Timeframe>("15m");
-  const [pass, setPass] = useState(0);
   const [sort, setSort] = useState<SignalSort>("confidence");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -45,6 +66,12 @@ export function Desk() {
     null,
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // The scan sweeps one slice at a time and the book accumulates across them,
+  // so the list is everything standing in the whole universe rather than
+  // whatever happened to be in the last response.
+  const { pass, advance } = useRotatingPass(SCAN_INTERVAL_MS * POLLS_PER_SLICE);
+  const [book, setBook] = useState<Book>(EMPTY_BOOK);
 
   const journal = useJournal();
 
@@ -65,15 +92,25 @@ export function Desk() {
   // Logged from the fetch callback rather than an effect on the result, so
   // one completed scan produces one log burst instead of a second render
   // pass reacting to the first.
+  // Signals already announced, so a slice being re-polled does not re-log the
+  // same three every minute. Cleared with the book on a timeframe change.
+  const announced = useRef<Set<string>>(new Set());
+
   const onScanned = useCallback(
     (result: ScanResult) => {
+      setBook((current) => mergeScan(current, result, Date.now()));
+
       addLog(
         "SCAN",
-        `${result.scanned} symbols · ${result.signals.length} signal${
+        `slice ${(result.pass % result.passes) + 1}/${result.passes} · ${result.scanned} symbols · ${result.signals.length} signal${
           result.signals.length === 1 ? "" : "s"
         } · ${result.durationMs}ms`,
       );
-      for (const signal of result.signals.slice(0, 3)) {
+
+      // Only what is actually new is worth a line.
+      const fresh = result.signals.filter((s) => !announced.current.has(s.id));
+      for (const signal of result.signals) announced.current.add(signal.id);
+      for (const signal of fresh.slice(0, 3)) {
         addLog(
           "SIGNAL",
           `${signal.symbol} ${signal.pattern.toLowerCase()} — ${signal.direction.toLowerCase()} at ${fmtPrice(signal.entry)}, ${signal.rr.toFixed(1)}R`,
@@ -85,17 +122,25 @@ export function Desk() {
 
   const scan = useScan(timeframe, pass, SCAN_INTERVAL_MS, onScanned);
 
-  const signals = useMemo(
-    () => (scan.data?.signals ?? []).filter((s) => !dismissed.has(s.id)),
-    [scan.data, dismissed],
+  const entries = useMemo(
+    () => book.entries.filter((e) => !dismissed.has(e.signal.id)),
+    [book, dismissed],
+  );
+
+  const sweepMs = sweepPeriodMs(
+    scan.data?.passes ?? 1,
+    SCAN_INTERVAL_MS * POLLS_PER_SLICE,
   );
 
   // Keeps a selection alive across rescans and falls back to the best signal.
   // Derived rather than synced into state: writing the fallback back into
   // `selectedId` would be a render triggering a render for no added meaning.
   const selected = useMemo(
-    () => signals.find((s) => s.id === selectedId) ?? signals[0] ?? null,
-    [signals, selectedId],
+    () =>
+      entries.find((e) => e.signal.id === selectedId)?.signal ??
+      entries[0]?.signal ??
+      null,
+    [entries, selectedId],
   );
 
   // The chart follows the scan's timeframe until the user picks another.
@@ -126,10 +171,14 @@ export function Desk() {
   const onTimeframe = (next: Timeframe) => {
     setChartTimeframe(next);
     setTimeframe(next);
+    // A book of 15m signals says nothing about the 1h chart, and its entries
+    // would otherwise linger until each symbol had been swept twice.
+    setBook(EMPTY_BOOK);
+    announced.current = new Set();
   };
 
   const onDismiss = (id: string) => {
-    const signal = signals.find((s) => s.id === id);
+    const signal = entries.find((e) => e.signal.id === id)?.signal;
     setDismissed((current) => new Set(current).add(id));
     if (signal) addLog("RISK", `${signal.symbol} signal dismissed`);
   };
@@ -180,7 +229,7 @@ export function Desk() {
       <Header
         marketOpen={session?.open ?? scan.data?.marketOpen ?? false}
         scannedAt={scan.data?.scannedAt ?? null}
-        scanned={scan.data?.scanned ?? 0}
+        scanned={book.covered.length}
         universeSize={scan.data?.universeSize ?? 0}
         equity={equity}
         dayPnl={stats.unrealised}
@@ -194,10 +243,11 @@ export function Desk() {
 
       <div className="grid min-h-[620px] flex-1 grid-cols-1 gap-2.5 xl:min-h-0 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,1.32fr)_minmax(0,0.92fr)]">
         <SignalList
-          signals={signals}
+          entries={entries}
           selectedId={selected?.id ?? null}
           sort={sort}
-          loading={scan.loading && !scan.data}
+          sweepMs={sweepMs}
+          loading={scan.loading && book.entries.length === 0}
           error={scan.error}
           riskPerTrade={journal.state.settings.riskPerTrade}
           accountSize={equity}
@@ -205,7 +255,7 @@ export function Desk() {
           onSort={setSort}
           onTake={(signal: Signal) => setTradeDraft({ signal })}
           onDismiss={onDismiss}
-          onRescan={() => setPass((p) => p + 1)}
+          onRescan={advance}
         />
 
         <section className="flex min-h-0 flex-col gap-2.5">

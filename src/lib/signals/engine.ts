@@ -13,7 +13,7 @@ import {
 } from "@/lib/analysis/indicators";
 import { detectPattern, detectPatterns } from "@/lib/analysis/patterns";
 import { getManySeries, getSeries } from "@/lib/market/yahoo";
-import { BENCHMARK, scanSlice, UNIVERSE } from "@/lib/market/universe";
+import { BENCHMARK, passCount, scanSlice, UNIVERSE } from "@/lib/market/universe";
 import type { Series, Timeframe } from "@/lib/market/types";
 import { buildLevels } from "./levels";
 import type { ScanResult, Signal, SignalFactor } from "./types";
@@ -357,6 +357,12 @@ export async function scan({
 
   return {
     signals,
+    // What came back, not what was asked for: a symbol that failed to fetch
+    // has not been checked, and expiring its signals would drop them on an
+    // upstream hiccup rather than on evidence.
+    covered: series.map((s) => s.symbol),
+    pass,
+    passes: passCount(),
     scanned: series.length,
     failed,
     universeSize: UNIVERSE.length,
