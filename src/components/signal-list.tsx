@@ -4,7 +4,9 @@ import { price, timeAgo } from "@/lib/format";
 import { useMounted, useSession, useTicker } from "@/lib/hooks";
 import { suggestedSize } from "@/lib/journal/stats";
 import { closedMarketNotice } from "@/lib/signals/execution";
+import { signalTicket } from "@/lib/signals/ticket";
 import type { Signal } from "@/lib/signals/types";
+import { CopyButton } from "./copy-button";
 import { DeskButton, Panel, Pill } from "./panel";
 import { ClosedBadge } from "./session-notice";
 
@@ -195,6 +197,15 @@ export function SignalList({
 
                 <div className="flex-1" />
 
+                <CopyButton
+                  text={() =>
+                    signalTicket(signal, {
+                      riskPerTrade,
+                      accountSize,
+                      notice: closed,
+                    })
+                  }
+                />
                 <DeskButton
                   onClick={() => onDismiss(signal.id)}
                   title="Hide this signal for the rest of the session"

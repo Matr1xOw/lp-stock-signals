@@ -53,6 +53,12 @@ resting order placed tonight works the next session on its own. The countdown
 runs off a real session calendar — weekends, holidays, and the 13:00 half-days
 — so it does not promise you an open on Thanksgiving.
 
+**Hands the signal over.** `COPY` puts a signal on the clipboard as a
+plain-text ticket — the four numbers you need to place the order, the pattern
+that produced them, the confidence with its sample size, and the closed-market
+warning if one applies. It is deliberately ASCII, because the destination is
+usually a broker's note field or a chat window rather than another terminal.
+
 **Journals your real trades.** `LOG TRADE` pre-fills a ticket from the signal,
 but every field stays editable — the price you got is rarely the price on
 screen, and a journal that records the plan instead of the fill would corrupt
@@ -73,7 +79,7 @@ Then open <http://localhost:3000>. No API keys and no signup — market data
 comes from Yahoo Finance's public chart endpoints.
 
 ```bash
-npm test          # 90 unit tests, no network required
+npm test          # 101 unit tests, no network required
 npm run build     # production build
 npm run lint
 ```

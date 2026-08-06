@@ -18,6 +18,12 @@ export type ExecutionNotice = {
   /** The consequence, spelled out under the chart. */
   detail: string;
   /**
+   * How long until the bell, as `11h 8m`. Carried separately from `badge` so
+   * other renderings — a copied ticket, say — can phrase it their own way
+   * rather than picking the display string apart.
+   */
+  wait: string;
+  /**
    * True when price has already reached the trigger, so there is no resting
    * order to leave — the trade is a fill on the open, at whatever the open is.
    */
@@ -54,6 +60,7 @@ export function closedMarketNotice(
     detail: atMarket
       ? `Cannot be taken for ${wait}. Price is already at the trigger, so this is a fill on the open — the gap decides your entry, not the level.`
       : `Cannot be taken for ${wait}. The trigger sits ${(gap * 100).toFixed(1)}% ${side} the last price, so a resting order placed now works through the next session.`,
+    wait,
     atMarket,
   };
 }

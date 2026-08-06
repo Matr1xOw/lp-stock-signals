@@ -4,7 +4,9 @@ import { dollars, holdDuration, timeAgo } from "@/lib/format";
 import { useMounted, useSession, useTicker } from "@/lib/hooks";
 import { suggestedSize } from "@/lib/journal/stats";
 import { closedMarketNotice } from "@/lib/signals/execution";
+import { signalTicket } from "@/lib/signals/ticket";
 import type { Signal } from "@/lib/signals/types";
+import { CopyButton } from "./copy-button";
 import { DeskButton } from "./panel";
 import { ClosedNote } from "./session-notice";
 
@@ -153,6 +155,16 @@ export function SignalDetail({
         ))}
 
         <div className="ml-auto flex flex-none items-center gap-2 px-3.5 py-2.5">
+          <CopyButton
+            label="COPY TICKET"
+            text={() =>
+              signalTicket(signal, {
+                riskPerTrade,
+                accountSize,
+                notice: closed,
+              })
+            }
+          />
           <DeskButton onClick={() => onDismiss(signal.id)}>DISMISS</DeskButton>
           <DeskButton variant="primary" onClick={() => onTake(signal)}>
             LOG TRADE
