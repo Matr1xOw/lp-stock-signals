@@ -31,10 +31,26 @@ Features to add:
   market drift, not detector quality. On this data the detectors contribute
   nothing to entry timing.
 
-  - Score the placebo comparison by confidence decile. This is the only
-    question left that matters: if the top decile beats its placebo, the
-    engine's filtering is the product and the detectors are candidate
-    generation. If it does not, say so in the README.
+  The decile test (`npm run decile`) then answered the last open question.
+  Confidence does not rank entries: the spread between the top and bottom 30%
+  is +0.021 on daily, and -0.214 at 15m, where the highest-confidence decile
+  is the *worst* against its own placebo at -0.302. Intraday the score is a
+  mild contrarian indicator, plausibly because high confidence means strong
+  ADX, aligned MACD and heavy volume at once — a description of a move that
+  has already happened.
+
+  So the engine has no demonstrable edge: the detectors do not beat random
+  timing, the score does not rank what they find, and the apparent profit is
+  market drift. Everything around it — journal, book, session handling,
+  levels, risk measurement — is sound.
+
+  - **Fix the README.** It claims the engine "measures its own edge" and puts
+    CONFIDENCE on every card as the headline number. Written in good faith,
+    no longer supported. Highest priority in the repo: the only place where
+    the code and the claims disagree.
+  - Test the climax hypothesis — if high confidence buys exhaustion, flipping
+    or flattening VOLUME and TREND is cheap to measure and the harness would
+    show it straight away.
 
 - Split up the model into its alpha forecasts and risks models — next up
 

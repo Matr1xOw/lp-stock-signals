@@ -120,18 +120,79 @@ Three limits on that claim, none of which rescue it:
   subset could beat placebo even when the average does not — and if it does
   not, the score is not doing anything either.
 
+### The confidence score does not rank entries — and at 15m it inverts
+
+Settled 2026-08-12 with `npm run decile`. Every real trade is scored at its own
+detection bar and paired with placebo draws in the same bucket.
+
+| decile | 15m real | 15m placebo | 15m edge | 1D real | 1D placebo | 1D edge |
+| --- | --- | --- | --- | --- | --- | --- |
+| 6 | +0.093 | +0.084 | +0.010 | +0.289 | +0.066 | +0.223 |
+| 7 | +0.070 | −0.021 | +0.091 | +0.098 | +0.073 | +0.025 |
+| 8 | +0.019 | +0.193 | −0.173 | +0.181 | +0.112 | +0.068 |
+| 9 | +0.003 | +0.083 | −0.080 | −0.042 | +0.139 | −0.181 |
+| 10 | −0.196 | +0.106 | **−0.302** | +0.116 | +0.111 | +0.006 |
+
+| | 15m | 1D |
+| --- | --- | --- |
+| top 30% edge | **−0.182** | −0.036 |
+| bottom 30% edge | +0.032 | −0.057 |
+| **spread** | **−0.214** | **+0.021** |
+
+**On daily the score separates nothing** — a spread of +0.021 across 4036
+trades is indistinguishable from zero.
+
+**On 15m it is actively backwards.** The highest-confidence decile is the
+worst performer against its own placebo, at −0.302, and the top 30% comes in
+at −0.182 against the bottom 30%'s +0.032. With 1578 trades a side the
+standard error on those means is roughly 0.04, so a −0.214 spread is not a
+rounding artefact, and deciles 8, 9 and 10 are all negative together.
+
+That is not "the score does nothing". It is "the score is a mild contrarian
+indicator on intraday bars". A worthwhile hypothesis for why, untested: high
+confidence means strong ADX, aligned MACD and heavy relative volume all at
+once, which is a description of a move that has already happened. The score
+may be systematically buying climaxes.
+
+Two caveats, neither of which rescues it. `EDGE` is excluded — recomputing it
+historically is O(n²) — but once pooled it is near-constant within a pattern,
+so it shifts patterns against each other rather than reordering signals inside
+one, and it is hard to see 18 points of that reversing a −0.214 spread. And
+the trades are not independent, which widens the true error bars beyond the
+naive figure above.
+
+### Where this leaves the desk
+
+Taken with the placebo result, the measurement programme now says three things
+that have to be held together:
+
+1. The detectors do not beat random entry timing (edge −0.050 at 15m).
+2. The confidence score does not rank what they find, and inverts intraday.
+3. What the desk displays as profitable is the market's drift over the window.
+
+**The engine does not currently have demonstrable edge.** Every part of it is
+individually reasonable and the whole is not doing what the interface implies.
+
+That is not an argument for deleting it. The journal, the session handling, the
+book, the levels and the risk measurement are all sound and independently
+useful, and a signal desk that generates candidates for a human to judge is a
+legitimate thing — as long as it does not present a confidence number as if it
+were a forecast.
+
 ### Next here
 
-That last limit is now the only question that matters, and it is the
-confidence harness from the original 2a, sharpened: **score the placebo
-comparison by confidence decile.** If the top decile beats its placebo and the
-bottom does not, the engine's filtering is the product and the detectors are
-just candidate generation. If confidence does not separate them, the desk is
-an expensive way to draw random entries and the honest response is to say so
-in the README.
-
-Everything needed for it is in place — `resolveFrom`, the placebo harness, and
-the factor vector the engine already computes.
+- **Say so in the README.** It currently claims the engine "measures its own
+  edge" and presents `CONFIDENCE` as the headline number on every card. That
+  was written in good faith and is no longer supported. This is the highest
+  priority item in the repo — it is the only one where the code and the claims
+  disagree.
+- **Test the climax hypothesis.** If high confidence is buying exhaustion,
+  inverting or flattening the `VOLUME` and `TREND` factors is a cheap thing to
+  measure, and the harness would show it immediately. A factor that predicts
+  backwards is more useful than one that predicts nothing.
+- **3-risk is unaffected and still worth building.** Stop placement from
+  measured heat and sizing that knows the book do not depend on the signals
+  having edge.
 
 ## What was measured
 

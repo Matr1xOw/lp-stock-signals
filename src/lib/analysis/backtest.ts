@@ -137,6 +137,8 @@ export type BacktestTrade = {
   rr: number;
   /** Which way the trade pointed. */
   long: boolean;
+  /** The detector's geometry quality, 0-1 — the PATTERN factor's input. */
+  quality: number;
   /**
    * Stop distance in ATR at the detection bar.
    *
@@ -186,6 +188,7 @@ export function resolveFrom(
     risk: number;
     rr: number;
     riskAtr: number;
+    quality?: number;
   },
   long: boolean,
   horizon: number,
@@ -215,6 +218,7 @@ export function resolveFrom(
         heatR: heat / levels.risk,
         rr: levels.rr,
         long,
+        quality: levels.quality ?? 0,
         riskAtr: levels.riskAtr,
         ambiguous: hitTarget,
         openedTowardTarget: hitTarget && toTarget < toStop,
@@ -229,6 +233,7 @@ export function resolveFrom(
         heatR: heat / levels.risk,
         rr: levels.rr,
         long,
+        quality: levels.quality ?? 0,
         riskAtr: levels.riskAtr,
         ambiguous: false,
         openedTowardTarget: false,
@@ -244,6 +249,7 @@ export function resolveFrom(
     heatR: heat / levels.risk,
     rr: levels.rr,
     long,
+    quality: levels.quality ?? 0,
     riskAtr: levels.riskAtr,
     ambiguous: false,
     openedTowardTarget: false,
@@ -378,6 +384,7 @@ export function backtestTrades(
         risk: levels.risk,
         rr: levels.rr,
         riskAtr: levels.risk / atr[end],
+        quality: match.score,
       },
       long,
       horizon,
