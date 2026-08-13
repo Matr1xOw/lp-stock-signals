@@ -78,7 +78,7 @@ describe("signalTicket", () => {
   it("keeps the win rate tied to its sample size", () => {
     assert.match(
       signalTicket(signal, sizing),
-      /^Confidence 78\/100 · hist win 61% \(18 setups\)$/m,
+      /^Setup fit 78\/100 \(shape, not forecast\) · hist win 61% \(18 setups\)$/m,
     );
   });
 
@@ -87,7 +87,7 @@ describe("signalTicket", () => {
       { ...signal, historicalWinRate: null, historicalSample: 0 },
       sizing,
     );
-    assert.match(untested, /^Confidence 78\/100$/m);
+    assert.match(untested, /^Setup fit 78\/100 \(shape, not forecast\)$/m);
     assert.doesNotMatch(untested, /hist win/);
   });
 

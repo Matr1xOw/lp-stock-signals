@@ -14,7 +14,7 @@ import { ClosedBadge } from "./session-notice";
 export type SignalSort = "confidence" | "recent" | "rr";
 
 export const SORT_LABELS: Record<SignalSort, string> = {
-  confidence: "CONFIDENCE",
+  confidence: "SETUP FIT",
   recent: "MOST RECENT",
   rr: "REWARD:RISK",
 };
@@ -28,12 +28,16 @@ function sortEntries(entries: BookEntry[], sort: SignalSort): BookEntry[] {
   return sorted.sort((a, b) => b.signal.confidence - a.signal.confidence);
 }
 
-/** Confidence colour, matching the thresholds used in the stat bar. */
-function confidenceTone(confidence: number) {
-  if (confidence >= 75) return { text: "text-up", bar: "bg-up" };
-  if (confidence >= 62) return { text: "text-amber", bar: "bg-amber" };
-  return { text: "text-muted", bar: "bg-muted" };
-}
+/**
+ * Deliberately one colour at every value.
+ *
+ * This used to run green above 75 and amber above 62, which reads as a
+ * verdict — good trade, fair trade. The score has since been measured against
+ * matched random entries and does not rank outcomes; on 15m bars the top
+ * decile is the worst performer. A number that cannot predict should not be
+ * painted in the colours the desk uses for profit and loss.
+ */
+const FIT_BAR = "bg-accent";
 
 export function SignalList({
   entries,
@@ -110,7 +114,6 @@ export function SignalList({
           const signal = entry.signal;
           const selected = signal.id === selectedId;
           const long = signal.direction === "LONG";
-          const tone = confidenceTone(signal.confidence);
           const size = suggestedSize(signal.entry, signal.stop, riskPerTrade, accountSize);
           const closed = session
             ? closedMarketNotice(signal, session, now)
@@ -167,19 +170,20 @@ export function SignalList({
                 <div className="flex-1" />
 
                 <div className="flex flex-col items-end gap-[3px]">
-                  <span className="font-mono text-[9px] tracking-[0.1em] text-muted-3">
-                    CONF
+                  <span
+                    className="font-mono text-[9px] tracking-[0.1em] text-muted-3"
+                    title="How cleanly the setup matches the engine's template. Not a forecast — see the README."
+                  >
+                    FIT
                   </span>
                   <div className="flex items-center gap-1.5">
                     <div className="h-1 w-[46px] overflow-hidden rounded-sm bg-track">
                       <div
-                        className={`h-full ${tone.bar}`}
+                        className={`h-full ${FIT_BAR}`}
                         style={{ width: `${signal.confidence}%` }}
                       />
                     </div>
-                    <span
-                      className={`font-mono text-xs font-semibold tnum ${tone.text}`}
-                    >
+                    <span className="font-mono text-xs font-semibold text-ink-soft tnum">
                       {signal.confidence}
                     </span>
                   </div>

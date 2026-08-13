@@ -77,7 +77,7 @@ export function signalTicket(
 
   // The sample size travels with the win rate. A bare "61%" invites a
   // confidence the number has not earned when it came from nine setups.
-  let confidence = `Confidence ${signal.confidence}/100`;
+  let confidence = `Setup fit ${signal.confidence}/100 (shape, not forecast)`;
   if (signal.historicalWinRate !== null) {
     confidence += ` · hist win ${(signal.historicalWinRate * 100).toFixed(0)}% (${signal.historicalSample} setups)`;
   }

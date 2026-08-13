@@ -57,15 +57,13 @@ export function SignalDetail({
       sub: `${signal.timeframe} bars`,
     },
     {
-      label: "CONFIDENCE",
+      // Neutral at every value on purpose: measured against matched random
+      // entries, this does not rank outcomes, so it is not coloured like
+      // something that does.
+      label: "SETUP FIT",
       value: `${signal.confidence}`,
-      tone:
-        signal.confidence >= 75
-          ? "text-up"
-          : signal.confidence >= 62
-            ? "text-amber"
-            : "text-ink",
-      sub: "of 100",
+      tone: "text-ink",
+      sub: "shape, not forecast",
     },
     {
       label: "R:R",
