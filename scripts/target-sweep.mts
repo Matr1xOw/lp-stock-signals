@@ -62,7 +62,7 @@ async function main() {
         data.set(pattern, byFraction);
       }
       for (const f of FRACTIONS) {
-        const trades = backtestTrades(s.candles, pattern, f)
+        const trades = backtestTrades(s.candles, pattern, { targetFraction: f })
           .filter((t) => t.outcome !== "UNRESOLVED")
           .map((t) => ({ ...t, late: t.index >= midpoint }));
         byFraction.set(f, [...(byFraction.get(f) ?? []), ...trades]);

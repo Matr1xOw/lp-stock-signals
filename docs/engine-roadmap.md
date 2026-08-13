@@ -10,6 +10,84 @@ changing one helps, so the instinct — open `engine.ts` and adjust weights — 
 the one move guaranteed to produce numbers that improve while the engine gets
 worse. Everything below is arranged to make that impossible.
 
+## ⚠ Read this first — the unfilled-entry bug, found 2026-08-12
+
+**Every expectancy figure recorded below before this date was measured through
+a bug, and the pattern-quality conclusions drawn from them were wrong.**
+
+`buildLevels` puts the trigger at the pattern's break level:
+`entry = max(breakout, close)` for a long. Unless price has already gone
+through it, that is a *resting stop order* — not a fill. The replay started
+the stop-versus-target race at `end + 1` regardless, never checking that price
+reached the entry at all. So when the next bar dipped to the stop and price
+never rose to the trigger, a setup that would have sat unfilled was booked as
+−1R.
+
+One-directional, and large. `backtestTrades` now requires the fill, with a
+ten-bar window, and abandons the setup if it never comes:
+
+| pattern | n before | n after | assumed fill | fill required | delta |
+| --- | --- | --- | --- | --- | --- |
+| DOUBLE BOTTOM | 1092 | 366 | −0.633 | **+0.361** | +0.994 |
+| CUP & HANDLE | 145 | 71 | −0.566 | **+0.314** | +0.880 |
+| BULL FLAG | 2133 | 1733 | −0.154 | **+0.268** | +0.422 |
+| BULL ENGULF | 187 | 187 | +0.147 | +0.147 | 0.000 |
+| BEAR ENGULF | 222 | 222 | +0.097 | +0.097 | 0.000 |
+| VOL BREAKOUT | 403 | 403 | +0.052 | +0.052 | 0.000 |
+| ASC TRIANGLE | 417 | 234 | −0.485 | +0.009 | +0.494 |
+| VOL BREAKDOWN | 293 | 293 | −0.125 | −0.125 | 0.000 |
+| DESC TRIANGLE | 326 | 156 | −0.723 | −0.240 | +0.483 |
+| DOUBLE TOP | 1315 | 326 | −0.865 | −0.303 | +0.563 |
+| BEAR FLAG | 1799 | 1280 | −0.663 | −0.372 | +0.292 |
+| **ALL** | | | **−0.461** | **+0.008** | **+0.469** |
+
+The four patterns showing a delta of exactly zero are the confirmation: engulfs
+and volume breaks trigger at market, so they have no resting entry and nothing
+to get wrong. Only the patterns with a pending trigger moved, which is exactly
+the signature the bug predicts. Two thirds of `DOUBLE BOTTOM`'s trades never
+existed.
+
+### What this retracts
+
+- **"Most detectors lose money on large samples" is withdrawn.** Seven of
+  eleven are positive once fills are required. `DOUBLE BOTTOM`, previously
+  called the clearest deletion candidate at −0.68R, is now the *best* pattern
+  on the desk at +0.36R.
+- **The recommendation to delete `DOUBLE TOP` / `DOUBLE BOTTOM` is withdrawn.**
+- **The fade experiment that found this was itself invalid.** Fading appeared
+  to earn +1.73R on `DOUBLE TOP` — an implied 84% win rate at 2.26 R:R, where
+  a random walk gives 31%. The fade was collecting the mirror image of the
+  bug as free profit. Re-run against filled entries it is −0.31R, and nothing
+  fades profitably enough to matter. It was a bad experiment that happened to
+  be a good detector.
+
+### What survives
+
+- **Phase 2a's conclusion holds and strengthens.** On corrected data at 15m,
+  internal consistency rises 0.577 → 0.675 and past-predicts-future 0.033 →
+  0.134, with pooling at 0.298. Still real, still non-stationary, still worth
+  pooling.
+- **Phase 2c's constants re-validated unchanged.** 15m still peaks near
+  k = 128 (0.300) with the shipped k = 64 at 0.297; 1D still peaks exactly at
+  the shipped k = 8, now 0.368. No change needed.
+- **The tie-break and target-sweep conclusions stand** — both were about
+  relative effects across a fixed population, and both were tiny.
+
+### The live desk
+
+Signals across the universe go from 10 back to 28, with pattern variety
+restored, because the veto now reads corrected priors.
+
+### Still to check
+
+**The long/short split is suspicious.** Every long pattern is now positive and
+every short pattern negative — `DOUBLE BOTTOM` +0.36 against `DOUBLE TOP`
+−0.30, `BULL FLAG` +0.27 against `BEAR FLAG` −0.37. That maps onto the
+market's drift over a 15-day window far better than it maps onto detector
+quality. Before concluding anything about the short patterns, measure across a
+period that contains a real drawdown, or benchmark each pattern against the
+drift of its own symbol over the same bars.
+
 ## What was measured
 
 Every detector run against every symbol in the first scan slice, three
@@ -222,7 +300,7 @@ and thin.
 Shrinkage also dissolves the flat-7.2 problem: an estimate is now defined for
 every pair, leaning on the prior when there is nothing else.
 
-### It exposed something bigger than the pooling
+### It exposed something bigger than the pooling — **superseded, see the unfilled-entry section at the top**
 
 With the prior in place, most detectors turn out to be **losing patterns on
 large samples**. Pooled expectancy at 15m across all 92 symbols:
@@ -271,7 +349,7 @@ targets 2–5 ATR, so a single bar covering both needs a 3-plus ATR range, which
 4.1% of occurrences never resolve. `BacktestTrade` now carries `ambiguous` and
 `openedTowardTarget` so this stays checkable rather than becoming folklore.
 
-### It is the targets — except where it is the detector
+### It is the targets — except where it is the detector — **superseded; the entry bug, not the detectors**
 
 Splitting win rate from reward-to-risk separates the two, and the structure is
 unmistakable. `breakeven%` is the win rate each pattern's own R:R requires;
@@ -359,7 +437,7 @@ backtest cannot drift apart on it.
 
 ### Next here
 
-- **Delete or fix the losing detectors.** Exit tuning cannot save them, so the
+- ~~**Delete or fix the losing detectors.**~~ Withdrawn — the losses were the unfilled-entry bug. Exit tuning cannot save them, so the
   question is entry quality. `DOUBLE TOP` and `DOUBLE BOTTOM` are −0.68R and
   −0.70R over 2287 trades and are the clearest candidates for removal; the
   README's "nine detectors" is a promise the scan is not keeping.

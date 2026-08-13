@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Candle } from "@/lib/market/types";
-import { backtestPattern } from "./backtest";
+import { backtestPattern, backtestTrades } from "./backtest";
 import { PATTERN_NAMES } from "./patterns";
 
 /**
@@ -105,6 +105,35 @@ describe("backtestPattern", () => {
         assert.equal(result.medianBarsToResolve, null);
       }
     }
+  });
+
+  it("fades the same occurrences on the same geometry", () => {
+    // The fade must be the same trade pointed the other way, not a different
+    // trade that happens to be short. Same occurrences, same reward-to-risk —
+    // only the direction differs, so any difference in outcome is about the
+    // market rather than about the levels being reshaped.
+    for (const name of PATTERN_NAMES) {
+      const candles = walk(400);
+      const straight = backtestTrades(candles, name);
+      const faded = backtestTrades(candles, name, { fade: true });
+
+      assert.equal(faded.length, straight.length, `${name} occurrence count`);
+      for (let i = 0; i < straight.length; i++) {
+        assert.ok(
+          Math.abs(faded[i].rr - straight[i].rr) < 1e-9,
+          `${name} trade ${i}: rr ${faded[i].rr} vs ${straight[i].rr}`,
+        );
+        assert.equal(faded[i].index, straight[i].index);
+      }
+    }
+  });
+
+  it("does not fade when not asked to", () => {
+    const candles = walk(400);
+    assert.deepEqual(
+      backtestTrades(candles, PATTERN_NAMES[0], { fade: false }),
+      backtestTrades(candles, PATTERN_NAMES[0]),
+    );
   });
 
   it("is deterministic", () => {

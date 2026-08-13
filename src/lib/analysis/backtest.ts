@@ -160,11 +160,42 @@ export type BacktestTrade = {
  * The honesty constraints documented on {@link BacktestResult} all live here;
  * `backtestPattern` is a summary of what this returns.
  */
+export type BacktestOptions = {
+  /** Fraction of the measured move to target. Defaults to the engine's. */
+  targetFraction?: number;
+  /**
+   * Take the other side: mirror the levels about the entry and trade against
+   * the pattern.
+   *
+   * A pattern that loses reliably is a strong claim stated backwards, and
+   * "delete or rewrite" is not answerable without knowing which. The mirror
+   * keeps entry, risk distance and reward distance identical and only flips
+   * the direction, so the fade is scored on the same geometry rather than on
+   * a differently-shaped trade that happens to point the other way.
+   */
+  fade?: boolean;
+  /**
+   * Require price to actually reach the entry before the trade is live.
+   *
+   * `buildLevels` puts the trigger at the pattern's break level, which sits
+   * beyond the last close unless price has already gone through it — a
+   * resting stop order, not a fill. Scoring from the bar after detection
+   * regardless books losses on trades that never opened: the next bar dips to
+   * the stop, price never reaches the trigger, and a setup that would have sat
+   * unfilled is recorded as −1R.
+   *
+   * Off only to reproduce the old numbers.
+   */
+  requireFill?: boolean;
+};
+
+/** Bars a resting entry gets to fill before the setup is abandoned. */
+const ENTRY_WINDOW = 10;
+
 export function backtestTrades(
   candles: Candle[],
   patternName: string,
-  /** Fraction of the measured move to target. Defaults to the engine's. */
-  targetFraction?: number,
+  { targetFraction, fade = false, requireFill = true }: BacktestOptions = {},
 ): BacktestTrade[] {
   if (candles.length < WARMUP + MIN_HORIZON + 10) return [];
 
@@ -181,29 +212,71 @@ export function backtestTrades(
     const match = detectPattern(history, patternName);
     if (!match) continue;
 
-    const levels = buildLevels(
+    const built = buildLevels(
       match,
       atr[end],
       candles[end].close,
       targetFraction,
     );
-    if (!levels) continue;
+    if (!built) continue;
 
-    const long = match.direction === "LONG";
+    // Mirroring about the entry preserves both distances, so the fade carries
+    // the same risk and the same reward-to-risk as the trade it opposes.
+    const reward = Math.abs(built.target - built.entry);
+    const levels = fade
+      ? {
+          ...built,
+          stop:
+            match.direction === "LONG"
+              ? built.entry + built.risk
+              : built.entry - built.risk,
+          target:
+            match.direction === "LONG"
+              ? built.entry - reward
+              : built.entry + reward,
+        }
+      : built;
+
+    const long = fade
+      ? match.direction !== "LONG"
+      : match.direction === "LONG";
     const horizon = horizonFor(
       Math.abs(levels.target - levels.entry) / atr[end],
     );
 
+    // Where the trade actually starts. A trigger already through the last
+    // close is live immediately; otherwise price has to come and get it, and
+    // the fill test follows the pattern's direction rather than the trade's,
+    // because the level sits where the pattern put it either way.
+    let start = end + 1;
+    if (requireFill && built.entry !== candles[end].close) {
+      const reached = (bar: Candle) =>
+        match.direction === "LONG"
+          ? bar.high >= built.entry
+          : bar.low <= built.entry;
+
+      let filled = -1;
+      for (let i = end + 1; i <= Math.min(end + ENTRY_WINDOW, candles.length - 1); i++) {
+        if (reached(candles[i])) {
+          filled = i;
+          break;
+        }
+      }
+      // Never filled: there was no trade, so there is nothing to score.
+      if (filled < 0) continue;
+      start = filled;
+    }
+
     // Score only an occurrence whose full horizon is available. Truncating it
     // at the end of the series would book slow winners as unresolved and bias
     // the record toward whatever happens to resolve quickly.
-    if (end + horizon >= candles.length) continue;
+    if (start + horizon >= candles.length) continue;
 
     let trade: BacktestTrade | null = null;
     // Worst excursion against the trade before it resolved, in price.
     let heat = 0;
 
-    for (let i = end + 1; i <= end + horizon; i++) {
+    for (let i = start; i <= start + horizon; i++) {
       const bar = candles[i];
       const adverse = long ? levels.entry - bar.low : bar.high - levels.entry;
       if (adverse > heat) heat = adverse;
@@ -221,7 +294,7 @@ export function backtestTrades(
           index: end,
           outcome: "LOSS",
           r: -1,
-          barsToResolve: i - end,
+          barsToResolve: i - start,
           heatR: heat / levels.risk,
           rr: levels.rr,
           ambiguous: hitTarget,
@@ -234,7 +307,7 @@ export function backtestTrades(
           index: end,
           outcome: "WIN",
           r: levels.rr,
-          barsToResolve: i - end,
+          barsToResolve: i - start,
           heatR: heat / levels.risk,
           rr: levels.rr,
           ambiguous: false,
