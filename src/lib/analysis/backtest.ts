@@ -71,7 +71,7 @@ export type BacktestResult = {
  * horizon to the distance being asked for gives every pattern the same
  * *opportunity* to work, rather than the same number of bars.
  */
-function horizonFor(rewardAtr: number): number {
+export function horizonFor(rewardAtr: number): number {
   if (!Number.isFinite(rewardAtr)) return MIN_HORIZON;
   return Math.max(MIN_HORIZON, Math.min(MAX_HORIZON, Math.round(rewardAtr * 10)));
 }
@@ -135,6 +135,16 @@ export type BacktestTrade = {
   heatR: number;
   /** Reward-to-risk the levels offered. The engine declines below MIN_RR. */
   rr: number;
+  /** Which way the trade pointed. */
+  long: boolean;
+  /**
+   * Stop distance in ATR at the detection bar.
+   *
+   * Recorded in ATR rather than price so the same geometry can be rebuilt at
+   * another bar, at that bar's volatility — which is what a matched placebo
+   * needs to isolate the detector's timing from the market's drift.
+   */
+  riskAtr: number;
   /**
    * The resolving bar's range covered both stop and target, and the stop was
    * assumed to have come first.
@@ -153,6 +163,92 @@ export type BacktestTrade = {
    */
   openedTowardTarget: boolean;
 };
+
+
+/**
+ * Races a set of levels against the bars that followed, from a given start.
+ *
+ * Extracted so a placebo can be scored through exactly the same rules as a
+ * real signal. A control trade resolved by a second implementation would
+ * measure the difference between two implementations rather than the
+ * difference between a detector and chance.
+ *
+ * `index` on the result is the start bar; callers scoring a detected pattern
+ * overwrite it with the detection bar.
+ */
+export function resolveFrom(
+  candles: Candle[],
+  start: number,
+  levels: {
+    entry: number;
+    stop: number;
+    target: number;
+    risk: number;
+    rr: number;
+    riskAtr: number;
+  },
+  long: boolean,
+  horizon: number,
+): BacktestTrade {
+  // Worst excursion against the trade before it resolved, in price.
+  let heat = 0;
+
+  for (let i = start; i <= Math.min(start + horizon, candles.length - 1); i++) {
+    const bar = candles[i];
+    const adverse = long ? levels.entry - bar.low : bar.high - levels.entry;
+    if (adverse > heat) heat = adverse;
+
+    const hitStop = long ? bar.low <= levels.stop : bar.high >= levels.stop;
+    const hitTarget = long
+      ? bar.high >= levels.target
+      : bar.low <= levels.target;
+
+    // Pessimistic on ambiguity: a bar that spans both counts as a loss.
+    if (hitStop) {
+      const toStop = Math.abs(bar.open - levels.stop);
+      const toTarget = Math.abs(bar.open - levels.target);
+      return {
+        index: start,
+        outcome: "LOSS",
+        r: -1,
+        barsToResolve: i - start,
+        heatR: heat / levels.risk,
+        rr: levels.rr,
+        long,
+        riskAtr: levels.riskAtr,
+        ambiguous: hitTarget,
+        openedTowardTarget: hitTarget && toTarget < toStop,
+      };
+    }
+    if (hitTarget) {
+      return {
+        index: start,
+        outcome: "WIN",
+        r: levels.rr,
+        barsToResolve: i - start,
+        heatR: heat / levels.risk,
+        rr: levels.rr,
+        long,
+        riskAtr: levels.riskAtr,
+        ambiguous: false,
+        openedTowardTarget: false,
+      };
+    }
+  }
+
+  return {
+    index: start,
+    outcome: "UNRESOLVED",
+    r: 0,
+    barsToResolve: null,
+    heatR: heat / levels.risk,
+    rr: levels.rr,
+    long,
+    riskAtr: levels.riskAtr,
+    ambiguous: false,
+    openedTowardTarget: false,
+  };
+}
 
 /**
  * Replays a detector over a symbol's history and scores every occurrence.
@@ -272,63 +368,22 @@ export function backtestTrades(
     // the record toward whatever happens to resolve quickly.
     if (start + horizon >= candles.length) continue;
 
-    let trade: BacktestTrade | null = null;
-    // Worst excursion against the trade before it resolved, in price.
-    let heat = 0;
-
-    for (let i = start; i <= start + horizon; i++) {
-      const bar = candles[i];
-      const adverse = long ? levels.entry - bar.low : bar.high - levels.entry;
-      if (adverse > heat) heat = adverse;
-
-      const hitStop = long ? bar.low <= levels.stop : bar.high >= levels.stop;
-      const hitTarget = long
-        ? bar.high >= levels.target
-        : bar.low <= levels.target;
-
-      // Pessimistic on ambiguity: a bar that spans both counts as a loss.
-      if (hitStop) {
-        const toStop = Math.abs(bar.open - levels.stop);
-        const toTarget = Math.abs(bar.open - levels.target);
-        trade = {
-          index: end,
-          outcome: "LOSS",
-          r: -1,
-          barsToResolve: i - start,
-          heatR: heat / levels.risk,
-          rr: levels.rr,
-          ambiguous: hitTarget,
-          openedTowardTarget: hitTarget && toTarget < toStop,
-        };
-        break;
-      }
-      if (hitTarget) {
-        trade = {
-          index: end,
-          outcome: "WIN",
-          r: levels.rr,
-          barsToResolve: i - start,
-          heatR: heat / levels.risk,
-          rr: levels.rr,
-          ambiguous: false,
-          openedTowardTarget: false,
-        };
-        break;
-      }
-    }
-
-    trades.push(
-      trade ?? {
-        index: end,
-        outcome: "UNRESOLVED",
-        r: 0,
-        barsToResolve: null,
-        heatR: heat / levels.risk,
+    const trade = resolveFrom(
+      candles,
+      start,
+      {
+        entry: levels.entry,
+        stop: levels.stop,
+        target: levels.target,
+        risk: levels.risk,
         rr: levels.rr,
-        ambiguous: false,
-        openedTowardTarget: false,
+        riskAtr: levels.risk / atr[end],
       },
+      long,
+      horizon,
     );
+
+    trades.push({ ...trade, index: end });
     end += COOLDOWN;
   }
 

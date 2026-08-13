@@ -21,12 +21,20 @@ Features to add:
   BOTTOM −0.68R over 1094 — and neither the intrabar tie-break (worth 0.011R)
   nor the target distance (near EV-neutral) explains it. They lose on entry.
 
-  - Delete or rewrite DOUBLE TOP and DOUBLE BOTTOM. The README promises nine
-    detectors; the scan cannot use all of them.
-  - Understand VOL BREAKOUT, the one convincingly profitable pattern
-    (+0.19R over 361 trades).
-  - Build the confidence harness — nothing has yet checked that a signal
-    scoring 80 beats one scoring 60.
+  Both of those conclusions were then overturned by a bug: the backtest
+  scored trades whose entry never filled, worth 0.469R. Once fixed, seven of
+  eleven detectors are positive and DOUBLE BOTTOM is the best of them.
+
+  A matched placebo (`npm run placebo`) then settled what that is worth.
+  Resolving the same trade from a random bar on the same symbol earns the
+  same money: edge is -0.050 at 15m and +0.005 daily. The long/short split is
+  market drift, not detector quality. On this data the detectors contribute
+  nothing to entry timing.
+
+  - Score the placebo comparison by confidence decile. This is the only
+    question left that matters: if the top decile beats its placebo, the
+    engine's filtering is the product and the detectors are candidate
+    generation. If it does not, say so in the README.
 
 - Split up the model into its alpha forecasts and risks models — next up
 

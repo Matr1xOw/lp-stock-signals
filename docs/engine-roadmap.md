@@ -78,15 +78,60 @@ existed.
 Signals across the universe go from 10 back to 28, with pattern variety
 restored, because the veto now reads corrected priors.
 
-### Still to check
+### It was the drift — and the detectors do not beat chance
 
-**The long/short split is suspicious.** Every long pattern is now positive and
-every short pattern negative — `DOUBLE BOTTOM` +0.36 against `DOUBLE TOP`
-−0.30, `BULL FLAG` +0.27 against `BEAR FLAG` −0.37. That maps onto the
-market's drift over a 15-day window far better than it maps onto detector
-quality. Before concluding anything about the short patterns, measure across a
-period that contains a real drawdown, or benchmark each pattern against the
-drift of its own symbol over the same bars.
+Settled 2026-08-12 with `npm run placebo`. For every real trade, the same
+trade is resolved from a **random bar on the same symbol**: same direction,
+same reward-to-risk, same horizon, same stop distance in ATR at that bar's own
+volatility. Both sides run through the same `resolveFrom`, so a difference
+cannot be two implementations disagreeing. Everything the market did over the
+window is held constant and only the detector's choice of moment is removed.
+
+| | 15m real | 15m placebo | 15m edge | 1D real | 1D placebo | 1D edge |
+| --- | --- | --- | --- | --- | --- | --- |
+| all | +0.008 | +0.058 | **−0.050** | +0.125 | +0.119 | **+0.005** |
+| long only | +0.220 | +0.264 | −0.043 | +0.355 | +0.316 | +0.039 |
+| short only | −0.271 | −0.211 | −0.060 | −0.248 | −0.201 | −0.047 |
+
+**The long/short split is entirely drift.** A *random* long over this window
+earns +0.26R and a *random* short loses −0.21R at 15m, and the same shape
+appears on daily. That is the whole of the asymmetry; it says nothing about
+the detectors.
+
+**And the detectors do not beat chance.** Edge is −0.050 at 15m and +0.005 on
+daily — at 15m the detectors time entries slightly *worse* than a coin. Per
+pattern the edges scatter around zero and do not agree between timeframes:
+`CUP & HANDLE` is −0.143 at 15m and +0.313 daily, `BEAR ENGULF` +0.291 and
+−0.042. Nothing shows a consistent positive edge. The one consistent reading
+is `ASC TRIANGLE` at −0.392 and −0.498, reliably worse than random.
+
+This is the headline result of the whole measurement programme, and it is
+worth stating plainly: **on this data, pattern detection contributes nothing
+to entry timing.** Everything the desk shows as profit over this window is the
+market going up.
+
+Three limits on that claim, none of which rescue it:
+
+- One 400-bar window is one regime. The recurring data ceiling.
+- Real trades cluster in time while placebo draws are uniform. That is the
+  intended contrast, but it does mean the two are not matched on *when*.
+- **It tests all detections, not the ones the desk trades.** The engine
+  filters on confidence, R:R, RSI, ±DI and the pooled edge. A high-confidence
+  subset could beat placebo even when the average does not — and if it does
+  not, the score is not doing anything either.
+
+### Next here
+
+That last limit is now the only question that matters, and it is the
+confidence harness from the original 2a, sharpened: **score the placebo
+comparison by confidence decile.** If the top decile beats its placebo and the
+bottom does not, the engine's filtering is the product and the detectors are
+just candidate generation. If confidence does not separate them, the desk is
+an expensive way to draw random entries and the honest response is to say so
+in the README.
+
+Everything needed for it is in place — `resolveFrom`, the placebo harness, and
+the factor vector the engine already computes.
 
 ## What was measured
 
