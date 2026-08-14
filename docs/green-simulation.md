@@ -69,9 +69,12 @@ length `0.1^(1/d)`; at `d = 8` that is **0.75 — three quarters of the range in
 every dimension**. The neighbourhood is nearly the whole space and the weights
 flatten toward uniform.
 
-`scripts/gns-demo.mts` measures what that costs, on a toy where the answer is
-known in closed form so IMSE is exact. Budget 4,000, 40 trials, conditioning
-embedded in *d* dimensions of which only the first drives the payoff:
+[**green-simulation-limits**](https://github.com/Matr1xOw/green-simulation-limits)
+measures what that costs, on a toy where the answer is known in closed form so
+IMSE is exact. It began as a script in this repo and was split out, because it
+shares no code, no data and no audience with a trading desk. Budget 4,000, 40
+trials, conditioning embedded in *d* dimensions of which only the first drives
+the payoff:
 
 | d | standard nested | GNS, known *f* | GNS, kernel | pooled mean |
 | --- | --- | --- | --- | --- |
@@ -155,5 +158,7 @@ and eight for a budget of 4,000, and it will move with budget, bandwidth rule
 and how much of the conditioning is actually informative. None of that is in
 the paper, which never needs it because Lee-Carter hands it a closed form.
 
-`npx tsx scripts/gns-demo.mts` reproduces the table. No market data, no
-network, no dependency on the rest of this repo.
+The table is reproduced by
+[green-simulation-limits](https://github.com/Matr1xOw/green-simulation-limits),
+which carries the full write-up of the result and the control conditions that
+make it trustworthy.
