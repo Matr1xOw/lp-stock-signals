@@ -66,10 +66,32 @@ similarities and the method has become Hong–Juneja–Liu with a bandwidth prob
 `SignalContext` carries eight features. At 15m there are ~5,265 resolved
 setups. Holding 10% of the data in a neighbourhood in *d* dimensions needs edge
 length `0.1^(1/d)`; at `d = 8` that is **0.75 — three quarters of the range in
-every dimension**. The neighbourhood is nearly the whole space, the weights go
-near-uniform, and **the kernel estimator degenerates to the unweighted pooled
-mean**, which is what already ships. The sophisticated version provably
-converges to the simple one.
+every dimension**. The neighbourhood is nearly the whole space and the weights
+flatten toward uniform.
+
+`scripts/gns-demo.mts` measures what that costs, on a toy where the answer is
+known in closed form so IMSE is exact. Budget 4,000, 40 trials, conditioning
+embedded in *d* dimensions of which only the first drives the payoff:
+
+| d | standard nested | GNS, known *f* | GNS, kernel | pooled mean |
+| --- | --- | --- | --- | --- |
+| 1 | 0.0141 | **0.0002** | 0.0010 | 0.1678 |
+| 2 | 0.0135 | 0.0001 | 0.0030 | 0.1688 |
+| 4 | 0.0145 | 0.0001 | 0.0090 | 0.1785 |
+| 8 | 0.0141 | 0.0001 | **0.0135** | 0.1802 |
+
+With `f` known, GNS is ~100× better than standard nested simulation — the
+paper's headline, reproduced. Estimating `f` costs a factor of five at `d = 1`
+and **the entire advantage by `d = 8`**, where GNS-kernel and plain nested
+simulation are the same number.
+
+An earlier draft of this document claimed the kernel estimator "provably
+converges to the unweighted pooled mean". The measurement says that is too
+strong at this budget — at `d = 8` it still beats the pooled mean by an order
+of magnitude, so some conditioning survives. The correct and still decisive
+statement is that **it loses everything it was supposed to buy**: by eight
+dimensions you have paid for a likelihood-ratio scheme and are getting naive
+nested simulation.
 
 It also gives up the property GNS was selling. Its advantage over Taylor
 approximation is that it is unbiased while the approximation's bias does not
@@ -108,18 +130,30 @@ the first and last. A portfolio risk engine satisfies all four, because the
 model is *specified* rather than inferred — `f` is known by construction, which
 is precisely what dissolves the fatal objection above.
 
-Sketched in the "possible continuations" section below rather than scoped here;
-nothing has been built.
+Nothing has been built. The shape would be: outer scenarios are draws of market
+state at a risk horizon, inner paths run to position exit, and the output is
+VaR or P(drawdown) on the open book. The appeal is the paper own closing hook —
+reuse across experiments identical but for their initial inputs — which is what
+happens every time a position is edited. The scenarios shift, the path library
+does not. Reweight, do not resimulate.
 
 ## The research question
 
 The gap is real and worth putting to the author: **what does green simulation
 look like when the conditional density is estimated rather than known?**
 
-Sharpened by the degeneracy above, it is more specific than it first appears.
-The mixture denominator is what tames the likelihood ratio and gives GNS its
+Sharpened by the table above, it is more specific than it first appears. The
+mixture denominator is what tames the likelihood ratio and gives GNS its
 variance control — and the mixture denominator is exactly what cannot be
 estimated reliably in moderate dimension. So the variance control and the
 dimensionality problem are not two limitations, they are the same limitation
-seen from two sides. A concrete failure case from outside actuarial science,
-with the neighbourhood arithmetic attached, is the contribution.
+seen from two sides.
+
+The contribution is the crossover: **the dimension at which an estimated
+density costs more than the reuse gains.** Here it is somewhere between four
+and eight for a budget of 4,000, and it will move with budget, bandwidth rule
+and how much of the conditioning is actually informative. None of that is in
+the paper, which never needs it because Lee-Carter hands it a closed form.
+
+`npx tsx scripts/gns-demo.mts` reproduces the table. No market data, no
+network, no dependency on the rest of this repo.
