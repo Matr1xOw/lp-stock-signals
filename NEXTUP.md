@@ -60,6 +60,19 @@ Features to add:
 
 - Expand the stock universe and make loading more effective with research from Ben Feng's paper
 
+  Assessed in docs/green-simulation.md against Feng, Li & Zhou (2022). The
+  likelihood-ratio reuse does not port to the signal engine: 2c already banked
+  the pooling gain, the binding constraint is data rather than compute, and
+  with eight conditioning features a kernel-weighted estimator provably
+  degenerates to the unweighted pooled mean already shipped.
+
+  Two pieces survive and are worth building:
+  - The payoff cache. Realised outcomes are fixed history, so keying them on
+    (symbol, timeframe, detector, trigger timestamp) makes a rescan almost
+    free. This is the green half without any likelihood ratios, and it is what
+    actually unblocks universe expansion.
+  - ESS = 1/sum(w^2) as the veto gate, replacing VETO_MIN_SAMPLE's raw count.
+
   Note this now interacts with the sweep: a full sweep takes
   `ceil(universe / 40) × 2` minutes, so 300 symbols would take 16 minutes and
   signals would age most of a sweep before being re-confirmed. Needs a
